@@ -1,0 +1,147 @@
+{
+  "schema_version": "1.0.0",
+  "capability": {
+    "id": "member.savings_balance.lookup",
+    "version": "1.0.0",
+    "name": "Look up member savings balance",
+    "description": "Given a member ID, returns the current savings balance.",
+    "status": "draft",
+    "risk_class": "read_only"
+  },
+
+  "target": {
+    "app_id": "target-app-hostile-core-banking",
+    "app_version_hint": "n/a - target-app has no footer version string",
+    "surface": "web",
+    "entry_point": "/members/search",
+    "policy_ref": "src/policy/policy.default.json"
+  },
+
+  "inputs": [
+    {
+      "name": "member_id",
+      "type": "string",
+      "required": true,
+      "pattern": "^[0-9]{5}$",
+      "redact": true,
+      "example": "10001"
+    }
+  ],
+
+  "outputs": [
+    {
+      "name": "savings_balance",
+      "type": "money",
+      "required": true,
+      "from_step": "read_balance",
+      "redact": true
+    }
+  ],
+
+  "steps": [
+    {
+      "id": "enter_member_id",
+      "intent": "Type the member ID into the search field",
+      "mutating": false,
+      "risk": "safe",
+      "action": { "type": "type", "value": { "$param": "member_id" } },
+      "target": {
+        "scope": { "frame_path": ["shell", "content"] },
+        "primary": { "by": "role_name", "role": "textbox", "name": "Member ID" },
+        "fallbacks": [
+          { "by": "label_text", "text": "Member ID" },
+          { "by": "attribute", "attr": "name", "value": "member_id" }
+        ]
+      },
+      "expect": { "kind": "field_value_equals", "target": "$self", "value": { "$param": "member_id" } },
+      "on_condition": [
+        { "when": "detector:known_interstitial", "do": "dismiss_and_retry", "max": 2 }
+      ],
+      "timeout_ms": 5000
+    },
+    {
+      "id": "submit_search",
+      "intent": "Click the Search control to submit the member lookup",
+      "mutating": false,
+      "risk": "safe",
+      "action": { "type": "click" },
+      "target": {
+        "scope": { "frame_path": ["shell", "content"] },
+        "primary": { "by": "role_name", "role": "button", "name": "Search" },
+        "fallbacks": [
+          { "by": "label_text", "text": "Search" }
+        ]
+      },
+      "on_condition": [
+        { "when": "detector:known_interstitial", "do": "dismiss_and_retry", "max": 2 }
+      ],
+      "timeout_ms": 10000
+    },
+    {
+      "id": "read_balance",
+      "intent": "Read the Savings field value from the account summary",
+      "mutating": false,
+      "risk": "safe",
+      "action": { "type": "read" },
+      "target": {
+        "scope": { "frame_path": ["shell", "content"] },
+        "primary": { "by": "label_text", "text": "Savings" },
+        "fallbacks": [
+          { "by": "attribute", "attr": "id", "value": "sv" }
+        ]
+      },
+      "timeout_ms": 5000
+    }
+  ],
+
+  "success": {
+    "checkpoint": {
+      "kind": "all",
+      "of": [
+        { "kind": "element_visible", "target": { "by": "role_name", "role": "heading", "name": "Account summary" } },
+        { "kind": "text_matches", "target": { "by": "label_text", "text": "Savings" }, "pattern": "^\\$[0-9,]+\\.[0-9]{2}$" }
+      ]
+    },
+    "precondition_false": true,
+    "required_outputs": ["savings_balance"]
+  },
+
+  "outcomes": [
+    {
+      "code": "validation_error",
+      "terminal": true,
+      "precedence": 5,
+      "detector": { "kind": "text_present", "pattern": "Please enter a valid 5-digit member ID" },
+      "message": "The supplied member ID was empty or malformed."
+    },
+    {
+      "code": "member_not_found",
+      "terminal": true,
+      "precedence": 10,
+      "detector": { "kind": "text_present", "pattern": "No member matching" },
+      "message": "No member exists with the supplied ID."
+    },
+    {
+      "code": "multiple_matches",
+      "terminal": true,
+      "precedence": 15,
+      "detector": { "kind": "element_count_gt", "target": { "by": "role_name", "role": "row" }, "count": 1 },
+      "message": "More than one member matched the supplied ID."
+    },
+    {
+      "code": "permission_denied",
+      "terminal": true,
+      "precedence": 20,
+      "detector": { "kind": "text_present", "pattern": "not authorized" },
+      "message": "The caller is not authorized to view this member record."
+    }
+  ],
+
+  "provenance": {
+    "discovered_at": "2026-09-10T00:00:00.000Z",
+    "model": "hand-written",
+    "discovery_run_id": "hand-written-p1-example",
+    "steps_pruned": 0,
+    "verified_replays": 0
+  }
+}

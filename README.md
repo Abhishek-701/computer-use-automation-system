@@ -51,7 +51,7 @@ See directory-level `README.md` files under `src/`, `target-app/`, `tests/`, `ar
 |---|---|---|
 | CP0 | repo, tooling, scaffold | done |
 | CP1 | target app (hostile local app) | done |
-| CP2 | schemas (artifact, action, result) | pending |
+| CP2 | schemas (artifact, action, result) | done |
 | CP3 | surface adapter (Playwright + desktop stub) | pending |
 | CP4 | policy gate | pending |
 | CP5 | replay engine | pending |
