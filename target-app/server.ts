@@ -7,17 +7,11 @@
  * would. See target-app/README.md for the full design writeup and
  * seeded-condition table.
  */
-import express from "express";
-import { router, errorHandler } from "./routes.js";
+import { createTargetApp } from "./app.js";
 
 const PORT = Number(process.env["TARGET_APP_PORT"] ?? 3000);
 
-const app = express();
-app.use(express.urlencoded({ extended: false }));
-app.use(router);
-app.use(errorHandler);
-
-app.listen(PORT, () => {
+createTargetApp().listen(PORT, () => {
   console.log(`target-app listening on http://localhost:${PORT}`);
   console.log(`entry point: http://localhost:${PORT}/members/search`);
 });

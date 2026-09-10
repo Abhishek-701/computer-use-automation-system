@@ -8,6 +8,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "postinstall": "playwright install chromium",
     "target-app": "tsx target-app/server.ts",
     "discover": "tsx src/cli/index.ts discover",
     "replay": "tsx src/cli/index.ts replay",

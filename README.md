@@ -14,7 +14,7 @@ System"). Full design rationale is in [`REPORT.md`](./REPORT.md) once written.
 ## Setup
 
 ```
-npm install
+npm install            # also installs the Chromium binary Playwright needs (postinstall)
 npm run target-app     # boots the hostile local app on :3000
 ```
 
@@ -52,7 +52,7 @@ See directory-level `README.md` files under `src/`, `target-app/`, `tests/`, `ar
 | CP0 | repo, tooling, scaffold | done |
 | CP1 | target app (hostile local app) | done |
 | CP2 | schemas (artifact, action, result) | done |
-| CP3 | surface adapter (Playwright + desktop stub) | pending |
+| CP3 | surface adapter (Playwright + desktop stub) | done |
 | CP4 | policy gate | pending |
 | CP5 | replay engine | pending |
 | CP6 | discovery loop | pending |
