@@ -1,0 +1,17 @@
+{
+  "allowed_origins": ["http://localhost:3000"],
+  "allowed_routes": ["/", "/members/**"],
+  "allowed_action_types": {
+    "discovery": ["navigate", "click", "type", "select", "read"],
+    "replay": ["navigate", "click", "type", "select", "read"]
+  },
+  "irreversible_actions": [
+    { "action_type": "click", "role": "button", "name_pattern": "^Confirm$" }
+  ],
+  "redaction_patterns": [
+    { "name": "member_id", "pattern": "\\b[0-9]{5}\\b" },
+    { "name": "account_number", "pattern": "\\bSA-[0-9]{5}-[0-9]{4}\\b" }
+  ],
+  "max_steps": 40,
+  "max_duration_ms": 120000
+}

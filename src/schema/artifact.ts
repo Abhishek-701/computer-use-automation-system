@@ -175,6 +175,7 @@ export const Capability = z
     risk_class: z.enum(["read_only", "mutating"]),
   })
   .strict();
+export type CapabilityT = z.infer<typeof Capability>;
 
 export const Target = z
   .object({
