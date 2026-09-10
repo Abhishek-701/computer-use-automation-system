@@ -13,7 +13,14 @@ System"). Full design rationale is in [`REPORT.md`](./REPORT.md) once written.
 
 ## Setup
 
-_To be filled in during CP1–CP2 (target app, dependencies)._
+```
+npm install
+npm run target-app     # boots the hostile local app on :3000
+```
+
+Entry point: `http://localhost:3000/members/search`. See
+[`target-app/README.md`](./target-app/README.md) for the full flow, seeded conditions, and
+hostile-markup design.
 
 ## Config
 
@@ -43,7 +50,7 @@ See directory-level `README.md` files under `src/`, `target-app/`, `tests/`, `ar
 | Checkpoint | Scope | Status |
 |---|---|---|
 | CP0 | repo, tooling, scaffold | done |
-| CP1 | target app (hostile local app) | pending |
+| CP1 | target app (hostile local app) | done |
 | CP2 | schemas (artifact, action, result) | pending |
 | CP3 | surface adapter (Playwright + desktop stub) | pending |
 | CP4 | policy gate | pending |
