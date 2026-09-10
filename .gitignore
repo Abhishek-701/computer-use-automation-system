@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# env / secrets
+.env
+.env.local
+
+# playwright
+playwright-report/
+test-results/
+blob-report/
+/playwright/.cache/
+
+# editor / OS
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+
+# NOTE: /evidence/ and /artifacts/ are intentionally NOT ignored.
+# SPEC.md Section 13 requires the evidence bundle (including screenshots
+# and traces) committed to the repo. Do not add broad patterns here
+# (e.g. *.png, *.json) that would silently exclude them.
