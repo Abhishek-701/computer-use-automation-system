@@ -1,0 +1,7 @@
+[2026-09-11T19:38:14.484Z] intervention raised: step=click_heading reason=ambiguous_locator — expected: target resolves to exactly 1 element — observed: resolved to 2 elements
+[2026-09-11T19:38:14.488Z] session state: human (control_owner: human)
+[2026-09-11T19:38:14.488Z] human drives the live session: navigate to /members/10001/subaccount/new
+[2026-09-11T19:38:14.495Z] human signals resume via POST /resume (token redacted from this log)
+[2026-09-11T19:38:14.495Z] resume() result: {"ok":true}
+[2026-09-11T19:38:14.701Z] re-anchored and completed: status=success
+[2026-09-11T19:38:14.701Z] final session state: automation

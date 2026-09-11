@@ -1,0 +1,103 @@
+{
+  "url": "http://localhost:64443/members/10001/subaccount/new",
+  "nodes": [
+    {
+      "role": "generic",
+      "name": "",
+      "state": {
+        "visible": true
+      },
+      "framePath": [],
+      "handle": "f1e1"
+    },
+    {
+      "role": "heading",
+      "name": "Open sub-account",
+      "state": {
+        "visible": true
+      },
+      "framePath": [],
+      "handle": "f1e2"
+    },
+    {
+      "role": "cell",
+      "name": "",
+      "state": {
+        "visible": true
+      },
+      "framePath": [],
+      "handle": "f1e11"
+    },
+    {
+      "role": "text",
+      "name": "Account type",
+      "value": "Account type",
+      "state": {
+        "visible": true
+      },
+      "framePath": [],
+      "handle": "3c7e35000953"
+    },
+    {
+      "role": "combobox",
+      "name": "Account type",
+      "value": "",
+      "state": {
+        "visible": true
+      },
+      "framePath": [],
+      "handle": "f1e12"
+    },
+    {
+      "role": "option",
+      "name": "Checking",
+      "value": "",
+      "state": {
+        "visible": true,
+        "checked": true
+      },
+      "framePath": [],
+      "handle": "6aaec0d69132"
+    },
+    {
+      "role": "option",
+      "name": "Savings",
+      "value": "",
+      "state": {
+        "visible": true
+      },
+      "framePath": [],
+      "handle": "369bd200a21f"
+    },
+    {
+      "role": "text",
+      "name": "Initial deposit",
+      "value": "Initial deposit",
+      "state": {
+        "visible": true
+      },
+      "framePath": [],
+      "handle": "132d45b4e955"
+    },
+    {
+      "role": "textbox",
+      "name": "Initial deposit",
+      "value": "",
+      "state": {
+        "visible": true
+      },
+      "framePath": [],
+      "handle": "f1e13"
+    },
+    {
+      "role": "button",
+      "name": "Confirm",
+      "value": "",
+      "state": {
+        "visible": true
+      },
+      "framePath": [],
+      "handle": "f1e14"
+    }
+  ]
+}

@@ -56,5 +56,5 @@ See directory-level `README.md` files under `src/`, `target-app/`, `tests/`, `ar
 | CP4 | policy gate | done |
 | CP5 | replay engine | done |
 | CP6 | discovery loop | done |
-| CP7 | evidence + escalation | pending |
+| CP7 | evidence + escalation | done |
 | CP8 | deliverables (README, REPORT, evidence bundle, golden tests) | pending |

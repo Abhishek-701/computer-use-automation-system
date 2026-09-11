@@ -1,0 +1,26 @@
+{
+  "status": "success",
+  "capability_id": "member.savings_balance.lookup",
+  "capability_version": "1.0.0",
+  "run_id": "run_ab050b61-84c2-4e1c-bf37-ae88cea0f2bf",
+  "started_at": "2026-09-11T19:38:14.495Z",
+  "duration_ms": 182,
+  "outputs": {},
+  "control_transfers": [
+    {
+      "at_step": "click_heading",
+      "reason": "ambiguous_locator",
+      "handed_off_at": "2026-09-11T19:38:14.484Z",
+      "resumed_at": "2026-09-11T19:38:14.701Z",
+      "state_delta_ref": "./evidence/escalation/handoff/"
+    }
+  ],
+  "evidence": {
+    "log": "evidence/run_ab050b61-84c2-4e1c-bf37-ae88cea0f2bf/log.jsonl",
+    "screenshots": []
+  },
+  "warnings": {
+    "locator_drift": [],
+    "recovered_conditions": []
+  }
+}

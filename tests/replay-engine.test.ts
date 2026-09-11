@@ -10,7 +10,9 @@
  * match the ephemeral port.
  */
 import type { Server } from "node:http";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTargetApp } from "../target-app/app.js";
 import { replay, mergeOverlay } from "../src/replay/engine.js";
@@ -90,6 +92,30 @@ describe("replay engine (P4 acceptance)", () => {
     const result = await replay({ artifact: withInterstitialEntry, inputs: { member_id: "10001" }, baseUrl, policy, createAdapter, allowDraft: true });
     expect(result.status).toBe("success");
     expect(result.warnings?.recovered_conditions).toEqual([{ step_id: "enter_member_id", condition: "known_interstitial", attempts: 1 }]);
+  }, 20_000);
+
+  it("P6/SPEC.md §7: a hard failure captures a screenshot and references it as failure.evidence_ref", async () => {
+    const badArtifact: Artifact = {
+      ...artifact,
+      steps: [
+        {
+          id: "impossible_click",
+          intent: "Click something that doesn't exist, to force a resolve failure",
+          mutating: false,
+          risk: "safe",
+          action: { type: "click" },
+          target: { primary: { by: "role_name", role: "button", name: "Does Not Exist" }, fallbacks: [] },
+          on_condition: [],
+          timeout_ms: 1000,
+        },
+      ],
+    };
+    const evidenceDir = mkdtempSync(join(tmpdir(), "replay-evidence-test-"));
+    const result = await replay({ artifact: badArtifact, inputs: {}, baseUrl, policy, createAdapter, allowDraft: true, evidenceDir });
+    expect(result.status).toBe("failed");
+    expect(result.failure?.evidence_ref).toBeTruthy();
+    expect(result.evidence.screenshots).toEqual([result.failure?.evidence_ref]);
+    expect(readFileSync(result.failure!.evidence_ref!).length).toBeGreaterThan(0);
   }, 20_000);
 
   it("EDGE-10: reports failed_dirty, not failed, once past a mutating step", async () => {

@@ -29,6 +29,7 @@ import { enforce, checkOriginAndRoute, type PolicyT } from "../policy/gate.js";
 import { locate } from "./locator.js";
 import { waitForCondition } from "./assert.js";
 import { evaluateCondition } from "./detect.js";
+import { captureScreenshot } from "../evidence/capture.js";
 
 export interface ReplayParams {
   artifact: Artifact;
@@ -39,14 +40,48 @@ export interface ReplayParams {
   allowDraft?: boolean;
   runId?: string;
   /**
+   * When given, any hard failure captures a screenshot to
+   * `<evidenceDir>/failure.png` and references it as both
+   * `failure.evidence_ref` and `evidence.screenshots[0]` (SPEC.md
+   * Section 7's result contract shows this populated; the brief asks
+   * for "at least one richer signal on failure"). Best-effort: capture
+   * failing (e.g. the adapter/session is already dead) never masks the
+   * real failure being reported.
+   */
+  evidenceDir?: string;
+  /**
    * Required, not defaulted: engine.ts stays free of any Playwright
    * import at all (not even our own PlaywrightWebAdapter class) so the
    * "no Playwright above src/surface/" invariant holds unambiguously
    * for this file, not just in spirit. The caller (CLI, CP8) wires
    * `PlaywrightWebAdapter.create` in; tests can inject anything that
-   * satisfies SurfaceAdapter.
+   * satisfies SurfaceAdapter. Ignored when `adapter` is given.
    */
   createAdapter: (entryUrl: string) => Promise<SurfaceAdapter>;
+  /**
+   * An already-live adapter to drive instead of creating one — and,
+   * unlike the normal path, replay() does NOT close it when done; the
+   * caller owns its lifecycle. Used by src/escalation/session.ts to
+   * keep the *same* browser session alive across a human handoff
+   * (SPEC.md Section 9: "the same live session... not a fresh one").
+   */
+  adapter?: SurfaceAdapter;
+  /**
+   * Resume support (EDGE-24). When set, replay() does NOT navigate to
+   * entry_point or run the EDGE-12 precondition check — the human may
+   * have navigated anywhere. Instead it re-observes from scratch and
+   * re-anchors: if the success checkpoint already holds, it "skips
+   * ahead" by performing only the remaining `read` actions (safe,
+   * non-mutating) against the current state and returns success/
+   * fails cleanly on capturing outputs; otherwise it retries resolving
+   * this exact step's target once — if that now resolves, it
+   * *continues* normally from here; if not, it *fails* with
+   * `resume_reanchor_failed` rather than guessing further. A full
+   * "skip to an arbitrary later step" would need per-step
+   * preconditions this schema doesn't model — named as a limitation,
+   * not silently assumed away (see REPORT.md Cuts).
+   */
+  resumeFromStepId?: string;
 }
 
 const CHECKPOINT_TIMEOUT_MS = 10_000;
@@ -206,7 +241,8 @@ export async function replay(params: ReplayParams): Promise<ReplayResultT> {
   }
 
   const entryUrl = new URL(artifact.target.entry_point, params.baseUrl).toString();
-  const adapter = await params.createAdapter(entryUrl);
+  const ownsAdapter = !params.adapter;
+  const adapter = params.adapter ?? (await params.createAdapter(entryUrl));
 
   let mutatingCrossed = false;
   const outputs: Record<string, string | number | boolean> = {};
@@ -232,12 +268,30 @@ export async function replay(params: ReplayParams): Promise<ReplayResultT> {
     return observation;
   };
 
+  /** Best-effort failure-capture (P6, SPEC.md §7's `failure.evidence_ref`): never lets a capture problem mask the real failure being reported. */
+  const attachFailureEvidence = async (result: ReplayResultT): Promise<ReplayResultT> => {
+    if (!params.evidenceDir || !result.failure) return result;
+    try {
+      const capture = await captureScreenshot(adapter, params.evidenceDir, "failure");
+      return {
+        ...result,
+        failure: { ...result.failure, evidence_ref: capture.screenshotPath },
+        evidence: { ...result.evidence, screenshots: [capture.screenshotPath] },
+      };
+    } catch {
+      return result;
+    }
+  };
+
   try {
     let observation = await observeChecked();
 
     // EDGE-12: precondition_false — a stale confirmation banner from a
-    // previous run must not produce a false pass on this one.
-    if (artifact.success.precondition_false) {
+    // previous run must not produce a false pass on this one. Skipped
+    // on resume: we are deliberately not at the start of a run, and a
+    // checkpoint already being true is the expected "skip ahead" case
+    // handled by the re-anchoring logic below, not a stale-state bug.
+    if (artifact.success.precondition_false && !params.resumeFromStepId) {
       const already = evaluateCondition(artifact.success.checkpoint, { observation, paramValues: params.inputs });
       if (already) {
         throw new ReplayHalt(
@@ -279,7 +333,85 @@ export async function replay(params: ReplayParams): Promise<ReplayResultT> {
       return undefined;
     };
 
-    for (const step of artifact.steps) {
+    // --- resume re-anchoring (EDGE-24) ---
+    // Never trust the prior position. Re-observe (already done above,
+    // via observeChecked()), then decide: checkpoint already true means
+    // the human finished the task by hand — skip ahead by capturing any
+    // remaining declared outputs (never re-running a mutating action
+    // against state a human already produced) and returning success.
+    // Otherwise, retry resolving exactly this step's own target once —
+    // if it resolves now, continue normally from here; if not, fail
+    // cleanly rather than guess further.
+    let startIndex = 0;
+    if (params.resumeFromStepId) {
+      const idx = artifact.steps.findIndex((s) => s.id === params.resumeFromStepId);
+      if (idx === -1) {
+        throw new ReplayHalt(
+          buildFailure({
+            stepId: params.resumeFromStepId,
+            phase: "resolve",
+            expected: "resumeFromStepId exists in the artifact",
+            observed: "no such step id",
+            errorClass: "resume_step_not_found",
+            mutatingCrossed,
+          }),
+        );
+      }
+
+      let reanchorObservation: Observation;
+      try {
+        reanchorObservation = await observeChecked();
+      } catch (err) {
+        if (err instanceof ReplayHalt) throw err;
+        // EDGE-25: the session is dead on resume (browser closed, logged
+        // out) — fail with a specific error class, not an opaque throw.
+        throw new ReplayHalt(
+          buildFailure({
+            stepId: params.resumeFromStepId,
+            phase: "resolve",
+            expected: "the live session is still reachable on resume",
+            observed: err instanceof Error ? err.message : String(err),
+            errorClass: "session_dead",
+            mutatingCrossed,
+          }),
+        );
+      }
+      observation = reanchorObservation;
+
+      const alreadyDone = evaluateCondition(artifact.success.checkpoint, { observation, paramValues: params.inputs });
+      if (alreadyDone) {
+        for (const step of artifact.steps.slice(idx)) {
+          if (step.action.type !== "read") continue;
+          const located = await locate(adapter, step.target, step.timeout_ms);
+          if (located.resolution.status !== "ok") {
+            const [expected, observed] = describeResolutionFailure(located.resolution);
+            throw new ReplayHalt(
+              buildFailure({ stepId: step.id, phase: "resolve", expected, observed, errorClass: "resume_reanchor_failed", mutatingCrossed }),
+            );
+          }
+          const actResult = await adapter.act({ type: "read" });
+          if (actResult.ok && actResult.value !== undefined) capturedReads[step.id] = actResult.value;
+        }
+        startIndex = artifact.steps.length; // skip the main loop; fall through to final checkpoint + output collection
+      } else {
+        const retryLocate = await locate(adapter, artifact.steps[idx]!.target, artifact.steps[idx]!.timeout_ms);
+        if (retryLocate.resolution.status !== "ok") {
+          throw new ReplayHalt(
+            buildFailure({
+              stepId: params.resumeFromStepId,
+              phase: "resolve",
+              expected: "the failed step's target resolves after human intervention",
+              observed: "still not resolvable after resume",
+              errorClass: "resume_reanchor_failed",
+              mutatingCrossed,
+            }),
+          );
+        }
+        startIndex = idx;
+      }
+    }
+
+    for (const step of artifact.steps.slice(startIndex)) {
       if (Date.now() - startedAtMs > params.policy.max_duration_ms) {
         throw new ReplayHalt(
           buildFailure({
@@ -480,17 +612,20 @@ export async function replay(params: ReplayParams): Promise<ReplayResultT> {
       warnings: { locator_drift: locatorDrift, recovered_conditions: recoveredConditions },
     };
   } catch (err) {
-    if (err instanceof ReplayHalt) return err.result;
-    return buildFailure({
-      stepId: "(unknown)",
-      phase: "act",
-      expected: "no unexpected adapter/engine exception",
-      observed: err instanceof Error ? err.message : String(err),
-      errorClass: "unexpected_error",
-      mutatingCrossed,
-    });
+    const result =
+      err instanceof ReplayHalt
+        ? err.result
+        : buildFailure({
+            stepId: "(unknown)",
+            phase: "act",
+            expected: "no unexpected adapter/engine exception",
+            observed: err instanceof Error ? err.message : String(err),
+            errorClass: "unexpected_error",
+            mutatingCrossed,
+          });
+    return await attachFailureEvidence(result);
   } finally {
-    await adapter.close();
+    if (ownsAdapter) await adapter.close();
   }
 }
 
