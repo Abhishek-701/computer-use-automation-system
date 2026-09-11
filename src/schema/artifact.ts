@@ -243,7 +243,7 @@ export const Outcome = z
 // Overlays — sparse per-tenant patches, merged by step/outcome id
 // ---------------------------------------------------------------------
 
-const StepOverride = z
+export const StepOverride = z
   .object({
     action: Action.optional(),
     target: TargetSpec.optional(),
@@ -252,8 +252,9 @@ const StepOverride = z
     timeout_ms: z.number().int().positive().optional(),
   })
   .strict();
+export type StepOverrideT = z.infer<typeof StepOverride>;
 
-const OutcomeOverride = z
+export const OutcomeOverride = z
   .object({
     detector: Condition.optional(),
     message: z.string().optional(),
@@ -261,6 +262,7 @@ const OutcomeOverride = z
     precedence: z.number().int().optional(),
   })
   .strict();
+export type OutcomeOverrideT = z.infer<typeof OutcomeOverride>;
 
 const Overlay = z
   .object({

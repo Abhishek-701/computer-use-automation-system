@@ -27,7 +27,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import type { ActionT } from "../schema/action.js";
-import type { CapabilityT, StepT } from "../schema/artifact.js";
+import { Condition, TargetSpec, type CapabilityT, type StepT } from "../schema/artifact.js";
 
 const PolicyIrreversibleRule = z
   .object({
@@ -45,6 +45,24 @@ const RedactionPattern = z
   })
   .strict();
 
+/**
+ * A named, reusable detector an artifact's `on_condition` entries refer
+ * to by name (`"detector:known_interstitial"`). Declared here, not
+ * hardcoded in the replay engine, per REPORT.md Section 3's argument:
+ * detectors are declared data evaluated by a generic matcher, so the
+ * engine stays app-agnostic and detectors stay tenant-overridable
+ * (a different tenant's policy file can define a differently-shaped
+ * interstitial). `dismiss` is the control to click for
+ * `dismiss_and_retry`; omitted for detectors only ever used with
+ * `escalate` (there's nothing to click your way out of a session expiry).
+ */
+const KnownDetector = z
+  .object({
+    condition: Condition,
+    dismiss: TargetSpec.optional(),
+  })
+  .strict();
+
 export const Policy = z
   .object({
     allowed_origins: z.array(z.string().min(1)),
@@ -57,11 +75,13 @@ export const Policy = z
       .strict(),
     irreversible_actions: z.array(PolicyIrreversibleRule).default([]),
     redaction_patterns: z.array(RedactionPattern).default([]),
+    known_detectors: z.record(z.string(), KnownDetector).default({}),
     max_steps: z.number().int().positive(),
     max_duration_ms: z.number().int().positive(),
   })
   .strict();
 export type PolicyT = z.infer<typeof Policy>;
+export type KnownDetectorT = z.infer<typeof KnownDetector>;
 
 export function loadPolicy(data: unknown): PolicyT {
   return Policy.parse(data);

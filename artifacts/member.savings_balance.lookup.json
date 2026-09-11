@@ -125,7 +125,13 @@
       "code": "multiple_matches",
       "terminal": true,
       "precedence": 15,
-      "detector": { "kind": "element_count_gt", "target": { "by": "role_name", "role": "row" }, "count": 1 },
+      "detector": {
+        "kind": "all",
+        "of": [
+          { "kind": "element_visible", "target": { "by": "role_name", "role": "heading", "name": "Search Results" } },
+          { "kind": "element_count_gt", "target": { "by": "role_name", "role": "row" }, "count": 1 }
+        ]
+      },
       "message": "More than one member matched the supplied ID."
     },
     {

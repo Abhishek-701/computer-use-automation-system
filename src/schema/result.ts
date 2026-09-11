@@ -25,6 +25,7 @@ export const OutcomeResult = z
 
 /** Where in a step's execution a hard failure occurred. */
 export const FailurePhase = z.enum(["resolve", "act", "expect", "checkpoint"]);
+export type FailurePhaseT = z.infer<typeof FailurePhase>;
 
 export const FailureResult = z
   .object({

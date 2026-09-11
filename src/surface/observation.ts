@@ -118,10 +118,19 @@ export function pruneAriaTree(root: RawAriaNode | RawAriaNode[]): ObservationNod
     const meaningful = INTERACTIVE_ROLES.has(node.role) || content.length > 0 || childCount > 1 || hasState;
 
     if (meaningful) {
+      // For interactive/form roles, "no text reported" reliably means
+      // "empty value" (ariaSnapshotJSON omits `text` entirely for an
+      // empty input) — report it as "", not omitted, or a
+      // field_value_equals check against an intentionally empty param
+      // would silently fall back to comparing against the node's NAME
+      // instead. For non-interactive roles (headings, rows, ...),
+      // "value" genuinely doesn't apply when there's no text, so it
+      // stays omitted there.
+      const value = node.text !== undefined ? node.text : INTERACTIVE_ROLES.has(node.role) ? "" : undefined;
       out.push({
         role: node.role || "generic",
         name: node.name ?? "",
-        ...(node.text !== undefined ? { value: node.text } : {}),
+        ...(value !== undefined ? { value } : {}),
         state: toState(node),
         framePath,
         handle: node.ref ?? syntheticHandle(framePath, node.role, content),

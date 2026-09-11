@@ -12,6 +12,22 @@
     { "name": "member_id", "pattern": "\\b[0-9]{5}\\b" },
     { "name": "account_number", "pattern": "\\bSA-[0-9]{5}-[0-9]{4}\\b" }
   ],
+  "known_detectors": {
+    "known_interstitial": {
+      "condition": {
+        "kind": "element_visible",
+        "target": { "by": "role_name", "role": "alertdialog", "name": "System Announcement" }
+      },
+      "dismiss": {
+        "scope": { "frame_path": ["shell", "content"] },
+        "fallbacks": [],
+        "primary": { "by": "role_name", "role": "button", "name": "Dismiss" }
+      }
+    },
+    "session_expired": {
+      "condition": { "kind": "text_present", "pattern": "Session Expired" }
+    }
+  },
   "max_steps": 40,
   "max_duration_ms": 120000
 }
