@@ -238,6 +238,7 @@ export const Outcome = z
     message: z.string().optional(),
   })
   .strict();
+export type OutcomeT = z.infer<typeof Outcome>;
 
 // ---------------------------------------------------------------------
 // Overlays — sparse per-tenant patches, merged by step/outcome id

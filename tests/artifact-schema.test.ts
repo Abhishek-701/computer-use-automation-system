@@ -14,7 +14,11 @@ import { describe, expect, it } from "vitest";
 import { ArtifactSchema, findRedactedLiteralLeaks, parseArtifact } from "../src/schema/artifact.js";
 import { parseReplayResult } from "../src/schema/result.js";
 
-const EXAMPLE_PATH = new URL("../artifacts/member.savings_balance.lookup.json", import.meta.url);
+// A dedicated fixture, not the live artifacts/ path: CP6's discovery
+// run legitimately overwrites the live capability artifact with a real
+// discovered one (see recorder.ts), and these schema-mechanics tests
+// should stay stable regardless of what that currently contains.
+const EXAMPLE_PATH = new URL("./fixtures/hand-written-member-lookup.json", import.meta.url);
 
 function loadExample(): unknown {
   return JSON.parse(readFileSync(EXAMPLE_PATH, "utf-8"));

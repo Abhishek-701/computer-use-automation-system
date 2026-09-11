@@ -35,7 +35,11 @@ beforeAll(async () => {
   const rawPolicy = JSON.parse(readFileSync(new URL("../src/policy/policy.default.json", import.meta.url), "utf-8"));
   policy = loadPolicy({ ...rawPolicy, allowed_origins: [baseUrl] });
 
-  const rawArtifact = JSON.parse(readFileSync(new URL("../artifacts/member.savings_balance.lookup.json", import.meta.url), "utf-8"));
+  // Fixed fixture, not the live artifacts/ path: SPEC.md's P4 acceptance
+  // criterion is specifically about "the hand-written P1 artifact"
+  // replaying green — and CP6's discovery run legitimately overwrites
+  // the live capability artifact with a real discovered one afterward.
+  const rawArtifact = JSON.parse(readFileSync(new URL("./fixtures/hand-written-member-lookup.json", import.meta.url), "utf-8"));
   artifact = ArtifactSchema.parse(rawArtifact);
 }, 30_000);
 

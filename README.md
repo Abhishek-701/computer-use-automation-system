@@ -55,6 +55,6 @@ See directory-level `README.md` files under `src/`, `target-app/`, `tests/`, `ar
 | CP3 | surface adapter (Playwright + desktop stub) | done |
 | CP4 | policy gate | done |
 | CP5 | replay engine | done |
-| CP6 | discovery loop | pending |
+| CP6 | discovery loop | done |
 | CP7 | evidence + escalation | pending |
 | CP8 | deliverables (README, REPORT, evidence bundle, golden tests) | pending |

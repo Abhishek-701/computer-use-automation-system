@@ -27,7 +27,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import type { ActionT } from "../schema/action.js";
-import { Condition, TargetSpec, type CapabilityT, type StepT } from "../schema/artifact.js";
+import { Condition, TargetSpec, type CapabilityT, type StepT, type TargetSpecT } from "../schema/artifact.js";
 
 const PolicyIrreversibleRule = z
   .object({
@@ -152,10 +152,15 @@ export function checkOriginAndRoute(rawUrl: string, policy: PolicyT = DEFAULT_PO
   return { decision: "allow" };
 }
 
-function classifyIrreversible(action: ActionT, ctx: EnforceContext, policy: PolicyT): boolean {
-  if (ctx.mode === "replay" && ctx.step?.risk === "irreversible") return true;
-
-  const target = ctx.step?.target;
+/**
+ * Exported so the discovery recorder can use the exact same rule set to
+ * classify a freshly-recorded step's `mutating`/`risk` fields — the
+ * classification is policy-driven data, not a guess made twice in two
+ * different ways. A step matching an irreversible_actions rule is, by
+ * construction, also mutating (irreversible implies mutating; the
+ * converse isn't assumed).
+ */
+export function matchesIrreversibleRule(action: ActionT, target: TargetSpecT | undefined, policy: PolicyT): boolean {
   if (!target || target.primary.by !== "role_name") return false;
   const { role, name } = target.primary;
 
@@ -165,6 +170,11 @@ function classifyIrreversible(action: ActionT, ctx: EnforceContext, policy: Poli
     if (rule.name_pattern && !(name && new RegExp(rule.name_pattern).test(name))) return false;
     return true;
   });
+}
+
+function classifyIrreversible(action: ActionT, ctx: EnforceContext, policy: PolicyT): boolean {
+  if (ctx.mode === "replay" && ctx.step?.risk === "irreversible") return true;
+  return matchesIrreversibleRule(action, ctx.step?.target, policy);
 }
 
 /**
