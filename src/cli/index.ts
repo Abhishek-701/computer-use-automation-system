@@ -7,6 +7,8 @@
  * rather than silently doing nothing or crashing on a missing module.
  */
 import { readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { replay } from "../replay/engine.js";
 import { runDiscovery } from "../discovery/loop.js";
@@ -14,8 +16,10 @@ import { parseGoalSpec } from "../discovery/prompt.js";
 import { parseArtifact } from "../schema/artifact.js";
 import { loadPolicy, type PolicyT } from "../policy/gate.js";
 import { PlaywrightWebAdapter } from "../surface/web.playwright.js";
+import { EvidenceLogger, redactedFieldsFromArtifact } from "../evidence/logger.js";
 
 const DEFAULT_BASE_URL = "http://localhost:3000";
+const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const ARTIFACTS_DIR = fileURLToPath(new URL("../../artifacts/", import.meta.url));
 const POLICY_DEFAULT_PATH = fileURLToPath(new URL("../policy/policy.default.json", import.meta.url));
 
@@ -131,16 +135,27 @@ async function cmdReplay(args: string[]): Promise<number> {
   const tenant = parsed.values["tenant"];
   const evidenceDir = parsed.values["evidence-dir"];
 
+  const runId = `run_${randomUUID()}`;
+  const logger = new EvidenceLogger(policy, redactedFieldsFromArtifact(parsedArtifact.artifact));
+
   const result = await replay({
     artifact: parsedArtifact.artifact,
     inputs: parsed.inputs,
     baseUrl,
     policy,
     allowDraft: parsed.flags.has("allow-draft"),
+    runId,
+    logger,
     ...(tenant ? { tenant } : {}),
     ...(evidenceDir ? { evidenceDir } : {}),
     createAdapter: (url) => PlaywrightWebAdapter.create(url, { headless: true }),
   });
+
+  // result.evidence.log is the repo-relative convention string (e.g.
+  // "evidence/run_x/log.jsonl"); resolve it against the repo root, not
+  // process.cwd(), so `npm run replay` from any directory writes to the
+  // same place the JSON output claims.
+  logger.writeToFile(join(REPO_ROOT, result.evidence.log));
 
   console.log(JSON.stringify(result, null, 2));
   return result.status === "success" || result.status === "business_outcome" ? 0 : 1;

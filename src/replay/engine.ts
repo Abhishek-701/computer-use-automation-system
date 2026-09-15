@@ -30,6 +30,7 @@ import { locate } from "./locator.js";
 import { waitForCondition } from "./assert.js";
 import { evaluateCondition } from "./detect.js";
 import { captureScreenshot } from "../evidence/capture.js";
+import type { EvidenceLogger } from "../evidence/logger.js";
 
 export interface ReplayParams {
   artifact: Artifact;
@@ -82,6 +83,15 @@ export interface ReplayParams {
    * not silently assumed away (see REPORT.md Cuts).
    */
   resumeFromStepId?: string;
+  /**
+   * The single log sink (SPEC.md invariant #3). When given, replay()
+   * logs lifecycle events (run start, every failure, business outcomes,
+   * success) into it via .info/.warn/.error — never writes it to disk
+   * itself (that stays the caller's call, same as `evidenceDir`/screenshots;
+   * see src/cli/index.ts). Optional so every existing test that builds a
+   * bare ReplayParams keeps working unchanged.
+   */
+  logger?: EvidenceLogger;
 }
 
 const CHECKPOINT_TIMEOUT_MS = 10_000;
@@ -185,6 +195,12 @@ export async function replay(params: ReplayParams): Promise<ReplayResultT> {
   const startedAtMs = Date.now();
   const tenant = params.tenant;
 
+  params.logger?.info("run_started", runId, {
+    capability_id: params.artifact.capability.id,
+    ...(tenant ? { tenant } : {}),
+    ...params.inputs,
+  });
+
   const buildFailure = (opts: {
     stepId: string;
     phase: FailurePhaseT;
@@ -192,27 +208,38 @@ export async function replay(params: ReplayParams): Promise<ReplayResultT> {
     observed: string;
     errorClass: string;
     mutatingCrossed: boolean;
-  }): ReplayResultT => ({
-    status: opts.mutatingCrossed ? "failed_dirty" : "failed",
-    capability_id: params.artifact.capability.id,
-    capability_version: params.artifact.capability.version,
-    ...(tenant ? { tenant } : {}),
-    run_id: runId,
-    started_at: new Date(startedAtMs).toISOString(),
-    duration_ms: Date.now() - startedAtMs,
-    outputs: {},
-    failure: {
+  }): ReplayResultT => {
+    params.logger?.error("run_failed", runId, {
+      status: opts.mutatingCrossed ? "failed_dirty" : "failed",
       step_id: opts.stepId,
       phase: opts.phase,
+      error_class: opts.errorClass,
       expected: opts.expected,
       observed: opts.observed,
-      error_class: opts.errorClass,
-    },
-    control_transfers: [],
-    // Real log capture is src/evidence/logger.ts's job (CP7, single sink
-    // per invariant #3); this is the path convention it will write to.
-    evidence: { log: `evidence/${runId}/log.jsonl`, screenshots: [] },
-  });
+    });
+    return {
+      status: opts.mutatingCrossed ? "failed_dirty" : "failed",
+      capability_id: params.artifact.capability.id,
+      capability_version: params.artifact.capability.version,
+      ...(tenant ? { tenant } : {}),
+      run_id: runId,
+      started_at: new Date(startedAtMs).toISOString(),
+      duration_ms: Date.now() - startedAtMs,
+      outputs: {},
+      failure: {
+        step_id: opts.stepId,
+        phase: opts.phase,
+        expected: opts.expected,
+        observed: opts.observed,
+        error_class: opts.errorClass,
+      },
+      control_transfers: [],
+      // Real log capture is src/evidence/logger.ts's job (CP7, single sink
+      // per invariant #3); this is the path convention it will write to —
+      // and, when params.logger is given, what it will actually contain.
+      evidence: { log: `evidence/${runId}/log.jsonl`, screenshots: [] },
+    };
+  };
 
   // --- pre-flight, before any adapter exists ---------------------------
   let artifact: Artifact;
@@ -311,6 +338,7 @@ export async function replay(params: ReplayParams): Promise<ReplayResultT> {
     const checkOutcomes = (stepId: string): ReplayResultT | undefined => {
       for (const outcome of sortedOutcomes) {
         if (evaluateCondition(outcome.detector, { observation, paramValues: params.inputs })) {
+          params.logger?.info("business_outcome_detected", runId, { code: outcome.code, detected_at_step: stepId });
           return {
             status: "business_outcome",
             capability_id: artifact.capability.id,
@@ -598,6 +626,7 @@ export async function replay(params: ReplayParams): Promise<ReplayResultT> {
       }
     }
 
+    params.logger?.info("run_succeeded", runId, { ...outputs });
     return {
       status: "success",
       capability_id: artifact.capability.id,
