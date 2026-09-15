@@ -16,9 +16,10 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTargetApp } from "../target-app/app.js";
 import { replay, mergeOverlay } from "../src/replay/engine.js";
-import { ArtifactSchema, type Artifact } from "../src/schema/artifact.js";
+import { ArtifactSchema, type Artifact, type StepT } from "../src/schema/artifact.js";
 import { loadPolicy, type PolicyT } from "../src/policy/gate.js";
 import { PlaywrightWebAdapter } from "../src/surface/web.playwright.js";
+import { isStuckCondition } from "../src/escalation/session.js";
 
 const createAdapter = (url: string) => PlaywrightWebAdapter.create(url, { headless: true });
 
@@ -156,6 +157,60 @@ describe("replay engine (P4 acceptance)", () => {
     const result = await replay({ artifact: mutatingArtifact, inputs: {}, baseUrl, policy, createAdapter, allowDraft: true });
     expect(result.status).toBe("failed_dirty");
     expect(result.failure?.step_id).toBe("impossible_followup");
+  }, 20_000);
+
+  it("tolerates transient slowness (?slow=1500) — polling absorbs it, replay still succeeds", async () => {
+    // "Zero wall-clock waits" (REPORT.md §3): waitForCondition/locate poll
+    // until the condition holds or timeout_ms elapses, so an app that's
+    // merely slow — not broken — must not fail a replay whose per-step
+    // timeouts (5000-10000ms here) comfortably exceed the injected delay.
+    const slowEntry: Artifact = { ...artifact, target: { ...artifact.target, entry_point: "/members/search?slow=1500" } };
+    const result = await replay({ artifact: slowEntry, inputs: { member_id: "10001" }, baseUrl, policy, createAdapter, allowDraft: true });
+    expect(result.status).toBe("success");
+    expect(result.outputs["savings_balance"]).toBe("$4,231.10");
+  }, 20_000);
+
+  it("classifies a seeded server error (?boom=1) as a plain hard failure, not a crash or a business outcome", async () => {
+    // The content route throws synchronously (target-app/routes.ts's
+    // applyGenericFlags); the resulting 500 page has no search form at
+    // all, so the very first step can't resolve its target — the same
+    // shape as evidence/replay-outcomes/boom/result.json.
+    const boomEntry: Artifact = { ...artifact, target: { ...artifact.target, entry_point: "/members/search?boom=1" } };
+    const result = await replay({ artifact: boomEntry, inputs: { member_id: "10001" }, baseUrl, policy, createAdapter, allowDraft: true });
+    expect(result.status).toBe("failed");
+    expect(result.failure?.error_class).toBe("target_not_found");
+    expect(result.failure?.step_id).toBe("enter_member_id");
+    expect(isStuckCondition(result.failure!.error_class)).toBe(false); // an app error is a hard failure, not a human's problem
+  }, 20_000);
+
+  it("detects session/timeout expiry (?expire=1) as a stuck-shaped failure, escalation-eligible", async () => {
+    // `expire` only takes effect on the subaccount route (target-app's
+    // seeded condition for this case), returning a page whose text
+    // matches policy.default.json's `session_expired` known_detector.
+    // Declaring it with `do: "escalate"` is what makes this a candidate
+    // for src/escalation/session.ts's runReplayWithEscalation (proven
+    // end-to-end for a different trigger in tests/escalation.test.ts) —
+    // this test's job is just to prove *this specific seeded condition*
+    // is detected and classified as stuck, not to re-run the full handoff.
+    const expireStep: StepT = {
+      id: "select_type",
+      intent: "Select the sub-account type",
+      mutating: false,
+      risk: "safe",
+      action: { type: "select", value: "savings" },
+      target: { primary: { by: "role_name", role: "combobox", name: "Account type" }, fallbacks: [] },
+      on_condition: [{ when: "detector:session_expired", do: "escalate" }],
+      timeout_ms: 5000,
+    };
+    const expireArtifact: Artifact = {
+      ...artifact,
+      target: { ...artifact.target, entry_point: "/members/10001/subaccount/new?expire=1" },
+      steps: [expireStep],
+    };
+    const result = await replay({ artifact: expireArtifact, inputs: {}, baseUrl, policy, createAdapter, allowDraft: true });
+    expect(result.status).toBe("failed");
+    expect(result.failure?.error_class).toBe("detector_session_expired");
+    expect(isStuckCondition(result.failure!.error_class)).toBe(true);
   }, 20_000);
 });
 

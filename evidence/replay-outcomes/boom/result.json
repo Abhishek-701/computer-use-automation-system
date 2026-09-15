@@ -2,9 +2,9 @@
   "status": "failed",
   "capability_id": "member.savings_balance.lookup",
   "capability_version": "1.0.0",
-  "run_id": "run_18c27f72-3c51-4844-99cb-93b77e3797e7",
-  "started_at": "2026-09-15T04:45:27.933Z",
-  "duration_ms": 5289,
+  "run_id": "run_29b05771-86af-488b-8b63-993af72e0db7",
+  "started_at": "2026-09-15T21:27:01.399Z",
+  "duration_ms": 5188,
   "outputs": {},
   "failure": {
     "step_id": "type_1",
@@ -16,7 +16,7 @@
   },
   "control_transfers": [],
   "evidence": {
-    "log": "evidence/run_18c27f72-3c51-4844-99cb-93b77e3797e7/log.jsonl",
+    "log": "evidence/run_29b05771-86af-488b-8b63-993af72e0db7/log.jsonl",
     "screenshots": [
       "evidence/replay-outcomes/boom/failure.png"
     ]

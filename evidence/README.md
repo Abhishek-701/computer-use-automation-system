@@ -9,7 +9,7 @@ simulated.
 | `discovery/` | A real LLM-driven discovery run, start to finish, producing a verified artifact. See its own README for the trajectory, the model's reasoning, and the EDGE-26 prompt-injection moment. |
 | `replay-success/` | Clean replay: `member_id=10001` in, `savings_balance: "$4,231.10"` out, `status: "success"`. `log.jsonl` is that same run's actual output from `EvidenceLogger` (single sink, invariant #3), redacted fields intact (`member_id`, `savings_balance` both come out `[REDACTED:...]`), matching `result.json`'s `evidence.log` path. |
 | `replay-outcomes/member_not_found/` | `member_id=99999` — `status: "business_outcome"`, `outcome.code: "member_not_found"`, not a crash (invariant #4). `log.jsonl` alongside it, same guarantee as above. |
-| `replay-outcomes/boom/` | A seeded HTTP 500 (`?boom=1`) — `status: "failed"`, with `failure.evidence_ref` pointing at a real captured screenshot of the error page. The third bucket of the taxonomy: a hard failure, distinct from both of the above. |
+| `replay-outcomes/boom/` | A seeded HTTP 500 (`?boom=1`) — `status: "failed"`, with `failure.evidence_ref` pointing at a real captured screenshot of the error page. The third bucket of the taxonomy: a hard failure, distinct from both of the above. `log.jsonl` alongside it, same guarantee as `replay-success/` and `replay-outcomes/member_not_found/`. |
 | `escalation/` | A real intervention: raised, handed off, resumed on the same live session, re-anchored, and completed. See its own README for the full cycle and what's mocked. |
 
 The target app seeds nine distinct outcome conditions in total; this
