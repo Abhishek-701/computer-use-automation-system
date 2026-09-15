@@ -2,9 +2,9 @@
   "status": "business_outcome",
   "capability_id": "member.savings_balance.lookup",
   "capability_version": "1.0.0",
-  "run_id": "run_af1d78c6-4158-47e2-bc2d-b22180684ee8",
-  "started_at": "2026-09-15T04:45:27.518Z",
-  "duration_ms": 393,
+  "run_id": "run_f6575e0c-310a-444b-858e-c4f8028b9431",
+  "started_at": "2026-09-15T19:19:43.569Z",
+  "duration_ms": 409,
   "outputs": {},
   "outcome": {
     "code": "member_not_found",
@@ -13,7 +13,7 @@
   },
   "control_transfers": [],
   "evidence": {
-    "log": "evidence/run_af1d78c6-4158-47e2-bc2d-b22180684ee8/log.jsonl",
+    "log": "evidence/run_f6575e0c-310a-444b-858e-c4f8028b9431/log.jsonl",
     "screenshots": []
   }
 }
