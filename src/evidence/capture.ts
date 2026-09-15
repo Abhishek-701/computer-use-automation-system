@@ -19,6 +19,19 @@ export interface Capture {
   observation: Observation;
 }
 
+/**
+ * Forward slashes in every returned/stored path, regardless of OS —
+ * matching the `evidence/${runId}/log.jsonl` convention used everywhere
+ * else in this project. `join()` is still used for the actual
+ * filesystem write (Node resolves either separator correctly there);
+ * this only normalises the string committed to evidence files and
+ * returned to callers, so a path captured on Windows doesn't read
+ * strangely in a repo any OS will browse.
+ */
+function posixPath(...segments: string[]): string {
+  return join(...segments).split("\\").join("/");
+}
+
 /** Captures a screenshot + the observation it was taken from, writing the PNG to `<dir>/<name>.png`. */
 export async function captureScreenshot(adapter: SurfaceAdapter, dir: string, name: string): Promise<Capture> {
   const observation = await adapter.observe({ screenshot: true });
@@ -26,7 +39,7 @@ export async function captureScreenshot(adapter: SurfaceAdapter, dir: string, na
     throw new Error("adapter did not return a screenshot for a screenshot:true observe() call");
   }
   mkdirSync(dir, { recursive: true });
-  const screenshotPath = join(dir, `${name}.png`);
+  const screenshotPath = posixPath(dir, `${name}.png`);
   writeFileSync(screenshotPath, observation.screenshot);
   return { screenshotPath, observation };
 }
@@ -42,7 +55,7 @@ export async function captureScreenshot(adapter: SurfaceAdapter, dir: string, na
  */
 export function saveObservationSnapshot(dir: string, name: string, observation: Observation): string {
   mkdirSync(dir, { recursive: true });
-  const path = join(dir, `${name}.json`);
+  const path = posixPath(dir, `${name}.json`);
   const { url, nodes } = observation;
   writeFileSync(path, JSON.stringify({ url, nodes }, null, 2) + "\n", "utf-8");
   return path;

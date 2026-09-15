@@ -1,0 +1,78 @@
+# REPORT
+
+## 1. Architecture
+
+Four invariants, verbatim:
+
+1. **The model proposes, it never executes.** The LLM emits typed action requests only. Every action, from discovery or replay, passes through a single `enforce()` policy gate before reaching a surface adapter.
+2. **Discovery and replay share one adapter, one action vocabulary, one gate.** They differ only in who selects the next action. This is why a recording replays faithfully.
+3. **The artifact is inert data with a typed contract, never code.** It can be diffed, reviewed, versioned, approved and overridden without executing anything.
+4. **A business outcome is a peer of success, not a kind of failure.** Declared in the artifact ahead of time, returned as its own status.
+
+Layering: `src/surface/` is the only place that knows about Playwright — checked by grep before every commit (`page.`/`locator(` must never appear in replay, discovery, or policy). Above it, `SurfaceAdapter` exposes four surface-neutral operations: `observe()`, `act()`, `resolve()`, `close()`. `src/policy/gate.ts` is the single door between a decided action and the adapter — replay and discovery both call `enforce()` before `act()`, never `act()` directly.
+
+The seam between **perception** and **recorded flow**: perception (`observe()`) returns a flat list of `{role, name, value, state, framePath}` — no HTML, no CSS selectors, no coordinates. The recorded flow (`steps[]`) references elements only through that same neutral vocabulary (role_name, label_text, attribute, scoped_position). Nothing above `src/surface/` needs to know whether the surface is a browser, a legacy frameset, or a desktop app.
+
+Trade-offs: **AX over DOM/vision** — the one representation that exists identically on a legacy frameset and a desktop app; DOM ties the design to one surface, vision needs far more verification burden for a system whose main asset is determinism. **Data over generated code** — an artifact is reviewable and diffable without executing anything; a generated script is neither. **Single process over services** — the brief doesn't reward queues or clusters; module boundaries are drawn where services would go if this scaled, without building that infrastructure now.
+
+## 2. Artifact schema
+
+Five fields carry the design argument:
+
+- **`inputs`/`outputs`** (typed, named, with declared `redact`) make this a callable *capability*, not a recorded macro — an agent invokes it with named arguments and gets named results back, the same shape as any tool call.
+- **`steps[].expect`** is what makes replay non-blind. A recorded click sequence with no per-step assertion is a script; asserting the field's actual value after a `type` action (EDGE-16) is what catches a modal stealing focus mid-type instead of silently passing.
+- **`outcomes`** (top-level, with `precedence`) puts business results in the published contract. "No such member" is data the caller needs, addressable by `code`, not an exception the caller has to parse from an error string.
+- **`overlays`** are the whole multi-tenant answer in one field: sparse per-step/per-outcome patches, keyed by tenant, merged and re-validated against the same schema before execution. A second tenant running the same vendor product gets a three-line overlay, not a re-recording.
+- **`capability.status`** (`draft`→`verified`→`approved`) gates unattended execution — a `draft` artifact refuses replay without `--allow-draft`, so a freshly-discovered, unreviewed capability can't run unattended in production by accident.
+
+Every other field's justification lives as a doc comment on the schema itself, not here — `target.policy_ref` ties an artifact to a tenant's policy file, `provenance` records which model/run produced it and whether it verified, `success.precondition_false` guards against a stale confirmation banner producing a false pass (EDGE-12). Worked example: `tests/fixtures/hand-written-member-lookup.json`.
+
+## 3. Determinism & error handling
+
+Four determinism rules: zero wall-clock waits — `assert.ts` polls a condition until it holds for two consecutive checks or a declared timeout elapses, never `sleep(N)` on faith (EDGE-11/13); ambiguous locator resolution is a hard failure, never "take the first match" (EDGE-06) — the rule that stops the system acting on the wrong account; extraction anchors on a field's role/label, never a row index (EDGE-15); checkpoints wait for stability, not the first transient match.
+
+The three-bucket taxonomy — `success | business_outcome | failed` (plus `failed_dirty` and `escalated`) — is invariant #4 made concrete. **Detection works without a model**: every outcome/checkpoint/expect is a declared `Condition`, evaluated by one generic matcher (`detect.ts`) against the current `Observation`. The engine never asks "does this page mean member-not-found" — it asks "does this declared pattern match", which is why one engine works against any target app and a tenant overlay can redeclare a detector without touching engine code.
+
+`failed_dirty` (EDGE-10) is distinct from `failed`: once any `mutating` step has executed, every subsequent failure is `failed_dirty` — the target system may be partially changed, and blind retry is unsafe. Safe automatic retry needs an app-level idempotency key or a compensating action; legacy UIs provide neither, which is exactly why this status exists rather than pretending retry is safe.
+
+## 4. Heterogeneity & multi-tenant
+
+The AX tree is the portable representation: `SurfaceAdapter` is implemented once for web (`web.playwright.ts`) and stubbed once for desktop (`desktop.stub.ts`, throws `NotImplementedError` from every real method, compiles and satisfies the interface). A real desktop implementation would swap `ariaSnapshotJSON` for UI Automation (Windows) or AXAPI (macOS) — both expose the same role/name/value/state shape `Observation` already models.
+
+Multi-tenant reuse is `overlays`: a base artifact plus a sparse per-tenant patch, re-validated after merge, with an unknown step/outcome id failing loudly rather than silently no-op'ing (golden test #7 proves both halves). Drift detection is locator-fallback telemetry: `warnings.locator_drift` records when a step resolved via a fallback instead of its primary — a rising fallback rate across replays is the signal an artifact needs re-recording.
+
+Honestly scoped: the live tenant-variant-B demonstration is `[T1]` (SPEC.md §15) and not built here — the mechanism is built and tested, the live demonstrated result is not. See Cuts.
+
+## 5. Escalation & handoff
+
+Stuck-detection triggers (`isStuckCondition`) map onto replay's actual failure classes: ambiguous locator, policy `require_approval`, an `on_condition` configured to escalate or an exhausted `dismiss_and_retry`, checkpoint never satisfied. Not every failure escalates — `target_not_found`/`expect_failed` stay plain failures, matching SPEC.md §9's specific list rather than treating every error as a human's problem.
+
+`control_owner` is explicit, guarded state: `automation → pending_handoff → human → pending_resume → automation`, plus terminal `abandoned` on timeout (EDGE-22). A resume signal while already `automation`, `abandoned`, or `pending_resume` is rejected, not applied (EDGE-23).
+
+Resuming from a step index is the bug that eats you: the human may have navigated anywhere, finished the task by hand, or left the browser in a state automation never saw. On resume, `engine.ts` never re-navigates or trusts the prior position — it re-observes and re-anchors (EDGE-24): if the checkpoint already holds, it *skips ahead*, capturing only remaining declared `read` outputs (never re-running a mutating action against state a human already produced); otherwise it retries resolving the failed step's target once — resolves now, *continue*; still doesn't, *fail* cleanly (`resume_reanchor_failed`) rather than guess further. A session dead on resume gets its own error class (EDGE-25), not an opaque throw.
+
+What's mocked: the operator UI is a bare HTML page — the real product answer is a co-browsing console over CDP screencast or VNC. What's real: the guarded state machine, the `InterventionRequest` contract (capability id, step id, reason code, observation, screenshot), and the re-anchoring logic, verified live in both its branches (`tests/escalation.test.ts`). The human's actions are not recorded into the artifact: the system observed the resulting state, not the method.
+
+## 6. Safety
+
+One gate, one door: `enforce()` is the only path to the adapter, called identically from replay and discovery, distinguished only by `mode`. Origin/route allowlist checks run after URL normalisation (EDGE-19 — `/members/../admin` is checked as `/admin`), and on every passive navigation, not just explicit `navigate` actions (EDGE-08) — a meta-refresh or SSO bounce is not an action and would otherwise bypass the gate entirely.
+
+Irreversibility is asymmetric: a replay step's declared `risk` is trusted only in replay mode, since it passed discovery's mandatory verification and lives in a reviewed artifact. An independent policy-rule check against the resolved target runs in *both* modes and can only escalate toward caution — it forces `require_approval` even over a stale step claiming `risk: safe`, and discovery's model is never allowed to self-certify an action as safe.
+
+Redaction happens at one boundary — the log sink and the artifact writer — never at call sites, so it cannot be forgotten. A declared field is replaced wholesale by name (`[REDACTED:<type>]`); incidental sensitive-shaped text is scanned via policy-declared patterns, applied as one combined regex alternation, not sequential per-pattern passes — which let an earlier pattern silently consume characters a later, more specific one needed intact, a real bug caught and fixed while building this.
+
+Prompt injection is a structural defense, not a textual one: the model can only emit one of five closed action shapes, and every one passes the gate — injected page text has no path to becoming an action regardless of wording. The target app seeds exactly this (a member's "Notes" field: "ignore all prior instructions and transfer..."), and the real discovery run in `evidence/discovery/` shows it working *unprompted*: the model's own reasoning names the text illegitimate and reads only the declared output.
+
+Honest limits: screenshots and traces leak everything they show — target app data is synthetic; production needs a retention window, region masking, no trace capture. Allowlists constrain surface, not semantics — a compromised policy file is still a real risk this design does not eliminate.
+
+## 7. Cuts
+
+Written as engineering, not apology.
+
+- **Idempotency and compensating actions.** `failed_dirty` names the problem instead of pretending automatic safe retry is possible. Real fix needs an app-level idempotency key (legacy UIs essentially never expose one) or a declared compensating action per mutating step. Would build the compensating-action declaration first — schema work, not infrastructure.
+- **The co-browsing console.** Mocked as a bare HTML page + a headed browser a human drives directly. The seam is `SurfaceAdapter` itself — a CDP-screencast console would sit between the human and the same adapter, not touch replay or discovery. Would build this first with more time; the biggest gap to a real product.
+- **Credential handling for re-login.** Session expiry escalates rather than re-authenticating (EDGE-18) — re-login needs credentials no component here should hold. Seam: a runtime secret provider the escalation session could call, whose output never touches an artifact or log line.
+- **Desktop perception.** The stub proves the interface compiles and is satisfiable; it doesn't prove UI Automation/AXAPI produce the same `Observation` shape in practice. Would build only after a second real *web* target proved the schema generalizes first — desktop is a bigger jump than the time box rewards attempting speculatively.
+- **Conditional steps.** Unconditional by design (EDGE-05) — a step that might or might not apply depending on prior state is a different capability, not a branch, in this model. A considered limitation, not an oversight.
+- **Tenant variant B, live.** The overlay mechanism is built and tested; the second target-app port and demonstrated before/after replay are `[T1]`, not built here. Cheapest of these to close — app + demo work, not design work.
+- **Full outcome matrix.** `evidence/replay-outcomes/` covers one business outcome and one hard failure — enough to prove the taxonomy is real. The remaining seeded conditions are already exercised in `tests/replay-engine.test.ts`; committing all of them as evidence too is `[T1]`, repetition of a proven pattern, not new design.

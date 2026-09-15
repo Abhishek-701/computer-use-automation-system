@@ -1,0 +1,19 @@
+{
+  "status": "business_outcome",
+  "capability_id": "member.savings_balance.lookup",
+  "capability_version": "1.0.0",
+  "run_id": "run_af1d78c6-4158-47e2-bc2d-b22180684ee8",
+  "started_at": "2026-09-15T04:45:27.518Z",
+  "duration_ms": 393,
+  "outputs": {},
+  "outcome": {
+    "code": "member_not_found",
+    "message": "No member exists with the supplied ID.",
+    "detected_at_step": "click_2"
+  },
+  "control_transfers": [],
+  "evidence": {
+    "log": "evidence/run_af1d78c6-4158-47e2-bc2d-b22180684ee8/log.jsonl",
+    "screenshots": []
+  }
+}

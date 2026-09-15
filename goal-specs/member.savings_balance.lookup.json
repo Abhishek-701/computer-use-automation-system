@@ -1,0 +1,61 @@
+{
+  "goal": "Look up member 10001 and read their current savings balance.",
+  "capabilityId": "member.savings_balance.lookup",
+  "capabilityName": "Look up member savings balance",
+  "capabilityDescription": "Given a member ID, returns the current savings balance.",
+  "appId": "target-app-hostile-core-banking",
+  "entryPoint": "/members/search",
+  "policyRef": "src/policy/policy.default.json",
+  "riskClass": "read_only",
+  "defaultFramePath": ["shell", "content"],
+  "inputs": [
+    { "name": "member_id", "type": "string", "required": true, "pattern": "^[0-9]{5}$", "redact": true, "example": "10001" }
+  ],
+  "outputs": [
+    { "name": "savings_balance", "type": "money", "required": true, "redact": true }
+  ],
+  "successCheckpoint": {
+    "kind": "all",
+    "of": [
+      { "kind": "element_visible", "target": { "by": "role_name", "role": "heading", "name": "Account summary" } },
+      { "kind": "text_matches", "target": { "by": "label_text", "text": "Savings" }, "pattern": "^\\$[0-9,]+\\.[0-9]{2}$" }
+    ]
+  },
+  "preconditionFalse": true,
+  "outcomes": [
+    {
+      "code": "validation_error",
+      "terminal": true,
+      "precedence": 5,
+      "detector": { "kind": "text_present", "pattern": "Please enter a valid 5-digit member ID" },
+      "message": "The supplied member ID was empty or malformed."
+    },
+    {
+      "code": "member_not_found",
+      "terminal": true,
+      "precedence": 10,
+      "detector": { "kind": "text_present", "pattern": "No member matching" },
+      "message": "No member exists with the supplied ID."
+    },
+    {
+      "code": "multiple_matches",
+      "terminal": true,
+      "precedence": 15,
+      "detector": {
+        "kind": "all",
+        "of": [
+          { "kind": "element_visible", "target": { "by": "role_name", "role": "heading", "name": "Search Results" } },
+          { "kind": "element_count_gt", "target": { "by": "role_name", "role": "row" }, "count": 1 }
+        ]
+      },
+      "message": "More than one member matched the supplied ID."
+    },
+    {
+      "code": "permission_denied",
+      "terminal": true,
+      "precedence": 20,
+      "detector": { "kind": "text_present", "pattern": "not authorized" },
+      "message": "The caller is not authorized to view this member record."
+    }
+  ]
+}

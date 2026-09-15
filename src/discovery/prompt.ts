@@ -14,51 +14,75 @@
  * trusting the model's own say-so — see loop.ts.
  */
 import type Anthropic from "@anthropic-ai/sdk";
-import type { ConditionT, OutcomeT } from "../schema/artifact.js";
+import { z } from "zod";
+import { Condition, Outcome } from "../schema/artifact.js";
 
-export interface GoalInputSpec {
-  name: string;
-  type: "string" | "number" | "money" | "boolean" | "date";
-  required: boolean;
-  pattern?: string;
-  redact?: boolean;
-  /** EDGE-01: declared up front, used both to prompt the model and as the default concrete value for this run. */
-  example: string;
-}
+const IO_TYPES = ["string", "number", "money", "boolean", "date"] as const;
 
-export interface GoalOutputSpec {
-  name: string;
-  type: "string" | "number" | "money" | "boolean" | "date";
-  required: boolean;
-  redact?: boolean;
-}
+const GoalInputSpecSchema = z
+  .object({
+    name: z.string().min(1),
+    type: z.enum(IO_TYPES),
+    required: z.boolean(),
+    pattern: z.string().optional(),
+    redact: z.boolean().optional(),
+    /** EDGE-01: declared up front, used both to prompt the model and as the default concrete value for this run. */
+    example: z.string(),
+  })
+  .strict();
+export type GoalInputSpec = z.infer<typeof GoalInputSpecSchema>;
 
-export interface GoalSpec {
-  goal: string;
-  capabilityId: string;
-  capabilityName: string;
-  capabilityDescription: string;
-  appId: string;
-  entryPoint: string;
-  policyRef: string;
-  /**
-   * Operator-declared, same philosophy as everything else in GoalSpec:
-   * the frame nesting a given entry flow lives at is a property of the
-   * surface, known ahead of time (SPEC.md's own worked artifact example
-   * bakes `target.scope.frame_path` into every step for the same
-   * reason) — not something a live discovery run should have to
-   * rediscover per click. Applied to every model-proposed target.
-   * Omit for a surface with no iframe nesting.
-   */
-  defaultFramePath?: string[];
-  riskClass: "read_only" | "mutating";
-  inputs: GoalInputSpec[];
-  outputs: GoalOutputSpec[];
-  /** Operator-declared, evaluated by the loop after every action — the model never decides "done" itself. */
-  successCheckpoint: ConditionT;
-  preconditionFalse: boolean;
-  /** Operator domain knowledge, copied verbatim into the artifact — not something one successful trajectory can teach you (SPEC.md Section 6). */
-  outcomes: OutcomeT[];
+const GoalOutputSpecSchema = z
+  .object({
+    name: z.string().min(1),
+    type: z.enum(IO_TYPES),
+    required: z.boolean(),
+    redact: z.boolean().optional(),
+  })
+  .strict();
+export type GoalOutputSpec = z.infer<typeof GoalOutputSpecSchema>;
+
+/**
+ * Zod-validated on read, same as everything else this project stores as
+ * JSON on disk (SPEC.md §3 locked decision). A goal spec is
+ * operator-authored config, not a live-run artifact, but it deserves
+ * the same "readable error on malformed input" treatment.
+ */
+const GoalSpecSchema = z
+  .object({
+    goal: z.string().min(1),
+    capabilityId: z.string().min(1),
+    capabilityName: z.string().min(1),
+    capabilityDescription: z.string().min(1),
+    appId: z.string().min(1),
+    entryPoint: z.string().min(1),
+    policyRef: z.string().min(1),
+    /**
+     * Operator-declared, same philosophy as everything else in GoalSpec:
+     * the frame nesting a given entry flow lives at is a property of the
+     * surface, known ahead of time (SPEC.md's own worked artifact example
+     * bakes `target.scope.frame_path` into every step for the same
+     * reason) — not something a live discovery run should have to
+     * rediscover per click. Applied to every model-proposed target.
+     * Omit for a surface with no iframe nesting.
+     */
+    defaultFramePath: z.array(z.string()).optional(),
+    riskClass: z.enum(["read_only", "mutating"]),
+    inputs: z.array(GoalInputSpecSchema),
+    outputs: z.array(GoalOutputSpecSchema),
+    /** Operator-declared, evaluated by the loop after every action — the model never decides "done" itself. */
+    successCheckpoint: Condition,
+    preconditionFalse: z.boolean(),
+    /** Operator domain knowledge, copied verbatim into the artifact — not something one successful trajectory can teach you (SPEC.md Section 6). */
+    outcomes: z.array(Outcome),
+  })
+  .strict();
+export type GoalSpec = z.infer<typeof GoalSpecSchema>;
+
+export function parseGoalSpec(data: unknown): { ok: true; goalSpec: GoalSpec } | { ok: false; errors: string[] } {
+  const result = GoalSpecSchema.safeParse(data);
+  if (result.success) return { ok: true, goalSpec: result.data };
+  return { ok: false, errors: result.error.issues.map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`) };
 }
 
 export function buildSystemPrompt(goalSpec: GoalSpec, inputValues: Record<string, string>): string {

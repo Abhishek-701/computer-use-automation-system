@@ -1,0 +1,20 @@
+{
+  "status": "success",
+  "capability_id": "member.savings_balance.lookup",
+  "capability_version": "1.0.0",
+  "run_id": "run_d757950f-aae3-447c-bd8c-f8a860224c58",
+  "started_at": "2026-09-15T04:45:26.556Z",
+  "duration_ms": 936,
+  "outputs": {
+    "savings_balance": "$4,231.10"
+  },
+  "control_transfers": [],
+  "evidence": {
+    "log": "evidence/run_d757950f-aae3-447c-bd8c-f8a860224c58/log.jsonl",
+    "screenshots": []
+  },
+  "warnings": {
+    "locator_drift": [],
+    "recovered_conditions": []
+  }
+}
