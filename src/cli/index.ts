@@ -154,8 +154,14 @@ async function cmdReplay(args: string[]): Promise<number> {
   // result.evidence.log is the repo-relative convention string (e.g.
   // "evidence/run_x/log.jsonl"); resolve it against the repo root, not
   // process.cwd(), so `npm run replay` from any directory writes to the
-  // same place the JSON output claims.
-  logger.writeToFile(join(REPO_ROOT, result.evidence.log));
+  // same place the JSON output claims. Best-effort, matching
+  // attachFailureEvidence's own rule: a write problem here must never
+  // mask or replace the real replay result already computed above.
+  try {
+    logger.writeToFile(join(REPO_ROOT, result.evidence.log));
+  } catch (err) {
+    console.error(`warning: failed to write evidence log: ${err instanceof Error ? err.message : String(err)}`);
+  }
 
   console.log(JSON.stringify(result, null, 2));
   return result.status === "success" || result.status === "business_outcome" ? 0 : 1;
