@@ -9,7 +9,7 @@ Four invariants, verbatim:
 3. **The artifact is inert data with a typed contract, never code.** It can be diffed, reviewed, versioned, approved and overridden without executing anything.
 4. **A business outcome is a peer of success, not a kind of failure.** Declared in the artifact ahead of time, returned as its own status.
 
-Layering: `src/surface/` is the only place that knows about Playwright — checked by grep before every commit (`page.`/`locator(` must never appear in replay, discovery, or policy). Above it, `SurfaceAdapter` exposes four surface-neutral operations: `observe()`, `act()`, `resolve()`, `close()`. `src/policy/gate.ts` is the single door between a decided action and the adapter — replay and discovery both call `enforce()` before `act()`, never `act()` directly.
+Layering: `src/surface/` is the only place that knows about Playwright. `tests/golden.test.ts` (test 8) scans every other module for `page.`/`locator(`/`from "playwright"` and fails the build if any appear — an enforced check, not a remembered habit. Above the boundary, `SurfaceAdapter` exposes four surface-neutral operations: `observe()`, `act()`, `resolve()`, `close()`. `src/policy/gate.ts` is the single door between a decided action and the adapter — replay and discovery both call `enforce()` before `act()`, never `act()` directly.
 
 The seam between **perception** and **recorded flow**: perception (`observe()`) returns a flat list of `{role, name, value, state, framePath}` — no HTML, no CSS selectors, no coordinates. The recorded flow (`steps[]`) references elements only through that same neutral vocabulary (role_name, label_text, attribute, scoped_position). Nothing above `src/surface/` needs to know whether the surface is a browser, a legacy frameset, or a desktop app.
 
@@ -41,11 +41,11 @@ The AX tree is the portable representation: `SurfaceAdapter` is implemented once
 
 Multi-tenant reuse is `overlays`: a base artifact plus a sparse per-tenant patch, re-validated after merge, with an unknown step/outcome id failing loudly rather than silently no-op'ing (golden test #7 proves both halves). Drift detection is locator-fallback telemetry: `warnings.locator_drift` records when a step resolved via a fallback instead of its primary — a rising fallback rate across replays is the signal an artifact needs re-recording.
 
-Honestly scoped: the live tenant-variant-B demonstration is `[T1]` (SPEC.md §15) and not built here — the mechanism is built and tested, the live demonstrated result is not. See Cuts.
+Honestly scoped: a live tenant-variant-B demonstration (a second target app on a different port, replayed with a three-line overlay) is deliberately out of scope for this pass — the overlay mechanism itself is built and tested, the live demonstrated result is not. See Cuts.
 
 ## 5. Escalation & handoff
 
-Stuck-detection triggers (`isStuckCondition`) map onto replay's actual failure classes: ambiguous locator, policy `require_approval`, an `on_condition` configured to escalate or an exhausted `dismiss_and_retry`, checkpoint never satisfied. Not every failure escalates — `target_not_found`/`expect_failed` stay plain failures, matching SPEC.md §9's specific list rather than treating every error as a human's problem.
+Stuck-detection triggers (`isStuckCondition`) map onto replay's actual failure classes: ambiguous locator, policy `require_approval`, an `on_condition` configured to escalate or an exhausted `dismiss_and_retry`, checkpoint never satisfied. Not every failure escalates — `target_not_found`/`expect_failed` stay plain failures; only the failure classes above are deliberately curated as a human's problem, not every error indiscriminately.
 
 `control_owner` is explicit, guarded state: `automation → pending_handoff → human → pending_resume → automation`, plus terminal `abandoned` on timeout (EDGE-22). A resume signal while already `automation`, `abandoned`, or `pending_resume` is rejected, not applied (EDGE-23).
 
@@ -74,5 +74,5 @@ Written as engineering, not apology.
 - **Credential handling for re-login.** Session expiry escalates rather than re-authenticating (EDGE-18) — re-login needs credentials no component here should hold. Seam: a runtime secret provider the escalation session could call, whose output never touches an artifact or log line.
 - **Desktop perception.** The stub proves the interface compiles and is satisfiable; it doesn't prove UI Automation/AXAPI produce the same `Observation` shape in practice. Would build only after a second real *web* target proved the schema generalizes first — desktop is a bigger jump than the time box rewards attempting speculatively.
 - **Conditional steps.** Unconditional by design (EDGE-05) — a step that might or might not apply depending on prior state is a different capability, not a branch, in this model. A considered limitation, not an oversight.
-- **Tenant variant B, live.** The overlay mechanism is built and tested; the second target-app port and demonstrated before/after replay are `[T1]`, not built here. Cheapest of these to close — app + demo work, not design work.
-- **Full outcome matrix.** `evidence/replay-outcomes/` covers one business outcome and one hard failure — enough to prove the taxonomy is real. The remaining seeded conditions are already exercised in `tests/replay-engine.test.ts`; committing all of them as evidence too is `[T1]`, repetition of a proven pattern, not new design.
+- **Tenant variant B, live.** The overlay mechanism is built and tested; a second target-app port and a demonstrated before/after replay against it are not built here. Cheapest of these to close — app + demo work, not design work.
+- **Full outcome matrix.** `evidence/replay-outcomes/` covers one business outcome and one hard failure — enough to prove the taxonomy is real. The remaining seeded conditions are already exercised in `tests/replay-engine.test.ts`; committing all of them as evidence too would be repetition of a proven pattern, not new design.

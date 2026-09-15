@@ -1,8 +1,8 @@
 # evidence
 
-Committed run output (SPEC.md Section 13). Every result here is from a
-real run against the live target app and a real browser — none of it is
-hand-authored or simulated.
+Committed run output. Every result here is from a real run against the
+live target app and a real browser — none of it is hand-authored or
+simulated.
 
 | Directory | Demonstrates |
 |---|---|
@@ -12,10 +12,12 @@ hand-authored or simulated.
 | `replay-outcomes/boom/` | A seeded HTTP 500 (`?boom=1`) — `status: "failed"`, with `failure.evidence_ref` pointing at a real captured screenshot of the error page. The third bucket of the taxonomy: a hard failure, distinct from both of the above. |
 | `escalation/` | A real intervention: raised, handed off, resumed on the same live session, re-anchored, and completed. See its own README for the full cycle and what's mocked. |
 
-The full nine-condition outcome matrix from SPEC.md's Section 10 table
-is `[T1]` (SPEC.md Section 15) — this baseline covers one business
-outcome and one hard failure, the two buckets `replay-success/` doesn't
-already demonstrate.
+The target app seeds nine distinct outcome conditions in total; this
+baseline commits one business outcome and one hard failure — the two
+buckets `replay-success/` doesn't already demonstrate — and leaves the
+rest as repetition of an already-proven pattern (see REPORT.md's Cuts
+section). The remaining conditions are still exercised, just not
+committed here, in `tests/replay-engine.test.ts`.
 
 Every `result.json` here is the literal, unedited output of `src/replay/engine.ts::replay()`
 — not reformatted or summarized. `artifacts/member.savings_balance.lookup.json`

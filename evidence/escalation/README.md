@@ -1,7 +1,7 @@
 # evidence/escalation
 
 A real intervention, raised, resumed, and re-anchored, against the live
-target app and a real browser (SPEC.md Section 9 P6 acceptance).
+target app and a real browser.
 
 ## What's here
 
@@ -62,5 +62,5 @@ browser window and clicking around themselves. The HTTP layer
 `tests/escalation-server.test.ts`; this capture calls `session.resume()`
 directly to keep the evidence focused on the state machine and
 re-anchoring, not on an HTTP round trip that adds nothing new to verify.
-The real product answer, per SPEC.md Section 9, is a co-browsing console
-over CDP screencast or VNC — deliberately out of scope here.
+The real product answer is a co-browsing console over CDP screencast or
+VNC — deliberately out of scope here (see REPORT.md Section 5).

@@ -21,8 +21,11 @@ cp .env.example .env   # fill in ANTHROPIC_API_KEY — only `discover` needs it
 
 ## Running without live services
 
-`replay`, `show`, and `npm test` run with **no API key and no network access** — they only need
-the local target app running. Only `discover` calls the Anthropic API.
+`replay` and `show` run with **no API key and no network access** — they only need the local
+target app running. `npm test` needs neither either: its browser-integration suites boot their
+own ephemeral copy of the target app in-process (`createTargetApp().listen(0)`) and tear it down
+after, so it doesn't need `npm run target-app` started first. Only `discover` calls the Anthropic
+API and needs `ANTHROPIC_API_KEY` set.
 
 ## Demo path
 
@@ -46,12 +49,13 @@ npm test
 ```
 
 `--allow-draft` is required because a freshly-discovered artifact's `capability.status` is
-`"draft"` (SPEC.md §6: draft artifacts refuse unattended replay without it) — this is intentional
-gating, not a workaround. `discover` needs a `--goal-spec` file (see
+`"draft"` — a draft refuses unattended replay without the flag, intentional gating so an
+unreviewed capability can't run in production by accident, not a workaround. `discover` needs a
+`--goal-spec` file (see
 [`goal-specs/member.savings_balance.lookup.json`](./goal-specs/member.savings_balance.lookup.json))
 declaring the capability's inputs, outputs, success checkpoint, and known business outcomes up
-front (EDGE-01's parameterisation philosophy applied consistently — see REPORT.md §2); `--goal`
-and `--target` optionally override the file's own goal text / entry point.
+front — the same parameterisation philosophy REPORT.md §2 argues for; `--goal` and `--target`
+optionally override the file's own goal text / entry point.
 
 Expected results:
 - `member_id=10001` → `status: "success"`, `outputs.savings_balance: "$4,231.10"`
@@ -71,8 +75,8 @@ and a live escalation/resume cycle.
 | `npm run show -- --capability <id>` | Validate and pretty-print a saved artifact |
 | `npm test` | Full test suite (unit + live-browser integration, no API key needed) |
 
-`catalog` and `stability` are optional-tier commands (SPEC.md §15, T1/T2) — not implemented; they
-print a clear message rather than failing silently.
+`catalog` and `stability` are optional-tier commands — deliberately not implemented in this pass;
+they print a clear message rather than failing silently or doing nothing.
 
 ## Repo layout
 
@@ -85,7 +89,7 @@ print a clear message rather than failing silently.
 /src/escalation   control_owner state machine, intervention HTTP server
 /src/evidence     single log sink (redaction happens here), screenshot capture
 /src/cli          discover | replay | show | catalog | stability
-/target-app       the deliberately hostile local app (SPEC.md §10)
+/target-app       the deliberately hostile local app used for discovery/replay demos
 /goal-specs       operator-declared goal specs for discovery
 /artifacts        saved capability artifacts
 /evidence         committed run output — see evidence/README.md

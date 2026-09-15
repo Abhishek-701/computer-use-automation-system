@@ -1,6 +1,6 @@
 /**
  * Golden invariant tests (SPEC.md Section 12). Not broad coverage —
- * "tested where it counts": seven tests, one per load-bearing
+ * "tested where it counts": eight tests, one per load-bearing
  * invariant, each self-contained enough to read start to finish
  * without hunting across the broader suites. Those broader suites
  * (surface-adapter, policy-gate, replay-engine, recorder,
@@ -9,7 +9,8 @@
  * not a replacement for them.
  */
 import type { Server } from "node:http";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTargetApp } from "../target-app/app.js";
 import { PlaywrightWebAdapter } from "../src/surface/web.playwright.js";
@@ -144,5 +145,32 @@ describe("golden invariants (SPEC.md §12)", () => {
       overlays: { tenant_b: { steps: { no_such_step: { timeout_ms: 1 } }, outcomes: {} } },
     };
     expect(() => mergeOverlay(badOverlay, "tenant_b")).toThrow(/unknown step id/);
+  });
+
+  it("8. Playwright stays confined to src/surface/ — the layering claim REPORT.md §1 makes, enforced rather than asserted in prose", () => {
+    // Every other module talks to the browser only through SurfaceAdapter's
+    // neutral vocabulary (observe/act/resolve/close). If Playwright leaks
+    // above that boundary, the "one adapter, replay is deterministic
+    // because it never touches Playwright directly" argument stops being
+    // true. This used to be a manual grep run before every commit; now it
+    // fails the build instead of relying on memory.
+    const forbiddenPatterns = [/from ["']playwright["']/, /\bpage\./, /\blocator\(/];
+    const scannedDirs = ["schema", "policy", "discovery", "replay", "escalation", "evidence", "cli", "catalog"];
+    const offenders: string[] = [];
+
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+        } else if (entry.isFile() && /\.tsx?$/.test(entry.name)) {
+          const text = readFileSync(full, "utf-8");
+          if (forbiddenPatterns.some((pattern) => pattern.test(text))) offenders.push(full);
+        }
+      }
+    };
+    for (const dir of scannedDirs) walk(new URL(`../src/${dir}`, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
+
+    expect(offenders).toEqual([]);
   });
 });

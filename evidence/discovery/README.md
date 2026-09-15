@@ -1,9 +1,8 @@
 # evidence/discovery
 
-A real, genuine LLM-driven discovery run (SPEC.md Section 5 P5 acceptance;
-brief Section 4: "the discovery run has to be real... a single successful
-run is not an expensive thing to produce"). Model: `claude-sonnet-5`, via
-the live Anthropic API — no mocking, no scripted responses.
+A real, genuine LLM-driven discovery run — a single successful run is not
+an expensive thing to produce, so this is captured live rather than
+scripted or mocked. Model: `claude-sonnet-5`, via the live Anthropic API.
 
 ## What's here
 
@@ -74,5 +73,3 @@ never touching the surface directly.
    cover for a loop that stops too early. Fixed: the loop now also
    tracks which required outputs have been captured and only stops once
    both the checkpoint holds and nothing required is still missing.
-
-Both are described in more detail in the CP6 commit message.
