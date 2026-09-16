@@ -10,6 +10,7 @@
   "scripts": {
     "postinstall": "playwright install chromium",
     "target-app": "tsx target-app/server.ts",
+    "target-app:tenant-b": "tsx target-app/server.ts --port 3001 --member-id-label \"Member Number\"",
     "discover": "tsx src/cli/index.ts discover",
     "replay": "tsx src/cli/index.ts replay",
     "show": "tsx src/cli/index.ts show",

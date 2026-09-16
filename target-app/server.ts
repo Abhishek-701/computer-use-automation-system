@@ -9,9 +9,21 @@
  */
 import { createTargetApp } from "./app.js";
 
-const PORT = Number(process.env["TARGET_APP_PORT"] ?? 3000);
+/**
+ * Plain positional-flag parsing, not src/cli's parseArgs — target-app
+ * has no dependency on the CLI package and this is the only flag it
+ * needs. CLI args take priority over env vars so the same command works
+ * identically on Windows (no `VAR=value cmd` shell syntax) and POSIX.
+ */
+function argValue(flag: string): string | undefined {
+  const i = process.argv.indexOf(flag);
+  return i >= 0 ? process.argv[i + 1] : undefined;
+}
 
-createTargetApp().listen(PORT, () => {
-  console.log(`target-app listening on http://localhost:${PORT}`);
+const PORT = Number(argValue("--port") ?? process.env["TARGET_APP_PORT"] ?? 3000);
+const MEMBER_ID_LABEL = argValue("--member-id-label") ?? process.env["MEMBER_ID_LABEL"] ?? "Member ID";
+
+createTargetApp({ memberIdLabel: MEMBER_ID_LABEL }).listen(PORT, () => {
+  console.log(`target-app listening on http://localhost:${PORT} (member id label: "${MEMBER_ID_LABEL}")`);
   console.log(`entry point: http://localhost:${PORT}/members/search`);
 });

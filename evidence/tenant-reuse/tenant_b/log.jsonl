@@ -1,0 +1,2 @@
+{"timestamp":"2026-09-16T06:38:18.444Z","level":"info","event":"run_started","run_id":"run_22939477-3a00-4230-bdb1-e15bd489a2de","data":{"capability_id":"member.savings_balance.lookup","tenant":"tenant_b","member_id":"[REDACTED:string]"}}
+{"timestamp":"2026-09-16T06:38:19.358Z","level":"info","event":"run_succeeded","run_id":"run_22939477-3a00-4230-bdb1-e15bd489a2de","data":{"savings_balance":"[REDACTED:money]"}}

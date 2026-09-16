@@ -286,6 +286,27 @@
       "message": "The caller is not authorized to view this member record."
     }
   ],
+  "overlays": {
+    "tenant_b": {
+      "steps": {
+        "type_1": {
+          "target": {
+            "scope": { "frame_path": ["shell", "content"] },
+            "primary": { "by": "role_name", "role": "textbox", "name": "Member Number" },
+            "fallbacks": []
+          }
+        },
+        "type_5": {
+          "target": {
+            "scope": { "frame_path": ["shell", "content"] },
+            "primary": { "by": "role_name", "role": "textbox", "name": "Member Number" },
+            "fallbacks": []
+          }
+        }
+      },
+      "outcomes": {}
+    }
+  },
   "provenance": {
     "discovered_at": "2026-09-15T18:24:44.017Z",
     "model": "claude-sonnet-5",

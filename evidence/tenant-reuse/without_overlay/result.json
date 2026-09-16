@@ -1,0 +1,21 @@
+{
+  "status": "failed",
+  "capability_id": "member.savings_balance.lookup",
+  "capability_version": "1.0.0",
+  "run_id": "run_dc0190a9-8691-4bd5-9f0c-4deee1c94ae9",
+  "started_at": "2026-09-16T06:38:28.468Z",
+  "duration_ms": 5175,
+  "outputs": {},
+  "failure": {
+    "step_id": "type_1",
+    "phase": "resolve",
+    "expected": "target resolves to exactly 1 element",
+    "observed": "resolved to 0 elements",
+    "error_class": "target_not_found"
+  },
+  "control_transfers": [],
+  "evidence": {
+    "log": "evidence/run_dc0190a9-8691-4bd5-9f0c-4deee1c94ae9/log.jsonl",
+    "screenshots": []
+  }
+}

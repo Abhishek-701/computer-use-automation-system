@@ -62,14 +62,16 @@ Expected results:
 - `member_id=99999` → `status: "business_outcome"`, `outcome.code: "member_not_found"`
 
 A real run of both is committed at [`evidence/`](./evidence/) — see its README for the full
-index, including a genuine LLM-driven discovery run with the model's own reasoning at each step
-and a live escalation/resume cycle.
+index, including a genuine LLM-driven discovery run with the model's own reasoning at each step,
+a live escalation/resume cycle, and a live cross-tenant reuse demo (the same discovered artifact,
+unmodified, replayed against a second app instance via a two-line `overlays` patch).
 
 ## CLI reference
 
 | Command | Purpose |
 |---|---|
 | `npm run target-app` | Boot the hostile target app on `:3000` |
+| `npm run target-app:tenant-b` | Boot a second, differently-labeled instance on `:3001` — stand-in for another bank's install of the same vendor product; see [`evidence/tenant-reuse/`](./evidence/tenant-reuse/) |
 | `npm run discover -- --goal-spec <path> --input k=v [--goal "..."] [--target <url>] [--headed]` | Run a live LLM discovery session; verifies and persists to `artifacts/<capability_id>.json` |
 | `npm run replay -- --capability <id> --input k=v [--tenant <id>] [--allow-draft] [--base-url <url>]` | Deterministic replay, no model in the loop |
 | `npm run show -- --capability <id>` | Validate and pretty-print a saved artifact |

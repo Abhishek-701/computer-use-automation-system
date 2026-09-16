@@ -1,0 +1,2 @@
+{"timestamp":"2026-09-16T06:38:28.468Z","level":"info","event":"run_started","run_id":"run_dc0190a9-8691-4bd5-9f0c-4deee1c94ae9","data":{"capability_id":"member.savings_balance.lookup","member_id":"[REDACTED:string]"}}
+{"timestamp":"2026-09-16T06:38:33.643Z","level":"error","event":"run_failed","run_id":"run_dc0190a9-8691-4bd5-9f0c-4deee1c94ae9","data":{"status":"failed","step_id":"type_1","phase":"resolve","error_class":"target_not_found","expected":"target resolves to exactly 1 element","observed":"resolved to 0 elements"}}

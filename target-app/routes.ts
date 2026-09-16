@@ -101,7 +101,7 @@ router.get("/members/search/shell", (req, res) => {
 // Search form (content level)
 // ---------------------------------------------------------------------
 
-function renderSearchForm(flags: Flags, errorMessage: string | null): string {
+function renderSearchForm(flags: Flags, errorMessage: string | null, memberIdLabel: string): string {
   const formId = rid("form");
   const fieldId = rid("member-id");
   const controlId = rid("search-btn");
@@ -111,7 +111,7 @@ function renderSearchForm(flags: Flags, errorMessage: string | null): string {
   return `
 <form id="${formId}" class="${hashedClass()}" method="post" action="/members/search/content">
 ${layoutTable(
-    `<label for="${fieldId}">Member ID</label>
+    `<label for="${fieldId}">${esc(memberIdLabel)}</label>
      <input type="text" id="${fieldId}" name="member_id" class="${hashedClass()}">
      ${errorBlock}
      <span role="button" tabindex="0" id="${controlId}" class="${hashedClass()}"
@@ -126,7 +126,8 @@ router.get("/members/search/content", async (req, res, next) => {
   try {
     const flags = parseFlags(req.query);
     await applyGenericFlags(flags);
-    const content = withInterstitial(flags, req, renderSearchForm(flags, null));
+    const memberIdLabel = req.app.locals["memberIdLabel"] as string;
+    const content = withInterstitial(flags, req, renderSearchForm(flags, null, memberIdLabel));
     res.type("html").send(page("Member Search", content));
   } catch (err) {
     next(err);
@@ -137,6 +138,7 @@ router.post("/members/search/content", async (req, res, next) => {
   try {
     const flags = parseFlags(req.body, req.query);
     await applyGenericFlags(flags);
+    const memberIdLabel = req.app.locals["memberIdLabel"] as string;
 
     const memberId = String(req.body["member_id"] ?? "").trim();
 
@@ -144,7 +146,7 @@ router.post("/members/search/content", async (req, res, next) => {
       const content = withInterstitial(
         flags,
         req,
-        renderSearchForm(flags, "Please enter a valid 5-digit member ID."),
+        renderSearchForm(flags, "Please enter a valid 5-digit member ID.", memberIdLabel),
       );
       res.type("html").send(page("Member Search", content));
       return;

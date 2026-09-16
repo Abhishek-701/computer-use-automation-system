@@ -1,0 +1,2 @@
+{"timestamp":"2026-09-16T06:38:10.606Z","level":"info","event":"run_started","run_id":"run_77abca99-6f31-4f4c-b8b7-7dc3ca8b87e8","data":{"capability_id":"member.savings_balance.lookup","member_id":"[REDACTED:string]"}}
+{"timestamp":"2026-09-16T06:38:11.549Z","level":"info","event":"run_succeeded","run_id":"run_77abca99-6f31-4f4c-b8b7-7dc3ca8b87e8","data":{"savings_balance":"[REDACTED:money]"}}
