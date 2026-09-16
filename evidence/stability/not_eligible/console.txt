@@ -1,0 +1,23 @@
+$ npm run stability -- --capability member.savings_balance.lookup --input member_id=99999 --runs 3
+
+running 'member.savings_balance.lookup' 3 times against http://localhost:3000 ...
+  [run 1/3] business_outcome
+  [run 2/3] business_outcome
+  [run 3/3] business_outcome
+
+{
+  "runs": 3,
+  "successes": 0,
+  "business_outcomes": 3,
+  "failures": 0,
+  "drift_events": 0,
+  "checked_at": "2026-09-16T07:03:07.359Z"
+}
+note: drift_events is measured over successful runs only — business_outcome/failed results carry no locator warnings.
+wrote provenance.stability to .../artifacts/member.savings_balance.lookup.json
+not eligible for promotion: needs >=1 success, 0 failures, 0 locator drift across all 3 runs
+
+$ npm run show -- --capability member.savings_balance.lookup --promote
+
+cannot promote: no clean provenance.stability report on file. Run: npm run stability -- --capability member.savings_balance.lookup --input <k=v> [--runs N]
+(exit code 1)

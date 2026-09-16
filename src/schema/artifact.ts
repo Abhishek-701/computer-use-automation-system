@@ -280,15 +280,41 @@ export type OverlaysT = z.infer<typeof Overlays>;
 // Provenance
 // ---------------------------------------------------------------------
 
+/**
+ * A multi-run replay batch's tally (stretch: "confidence & approval" +
+ * "multi-run stability"). `successes`/`business_outcomes` are kept
+ * separate deliberately: an artifact run N times against a not-found
+ * input reports N clean business_outcomes and *zero* successes, which
+ * must never look "reliable" to `isEligibleForVerification` below —
+ * repeatable is not the same as working.
+ */
+export const StabilityReport = z
+  .object({
+    runs: z.number().int().positive(),
+    successes: z.number().int().nonnegative(),
+    business_outcomes: z.number().int().nonnegative(),
+    /** failed | failed_dirty | escalated, collapsed — any of these means the batch wasn't clean. */
+    failures: z.number().int().nonnegative(),
+    /** Summed across successful runs only — business_outcome/failed results carry no `warnings` (SPEC.md §7). */
+    drift_events: z.number().int().nonnegative(),
+    checked_at: z.string().datetime(),
+  })
+  .strict();
+export type StabilityReportT = z.infer<typeof StabilityReport>;
+
 export const Provenance = z
   .object({
     discovered_at: z.string().datetime(),
     model: z.string().min(1),
     discovery_run_id: z.string().min(1),
     steps_pruned: z.number().int().nonnegative(),
-    /** Set by the mandatory post-discovery verification replay (EDGE-27) before this artifact is ever persisted. */
+    /** Set by the mandatory post-discovery verification replay (EDGE-27) before this artifact is ever persisted; also bumped by any later stability batch that records a success (one counter, not two disagreeing ones). */
     verified_replays: z.number().int().nonnegative(),
     last_verified_at: z.string().datetime().optional(),
+    /** Most recent multi-run batch, written by `npm run stability`. Never auto-consumed to change `capability.status` — see `--promote`/`--approve` in src/cli/index.ts; a score is evidence for a human decision, not the decision. */
+    stability: StabilityReport.optional(),
+    /** Set only by `show --approve`, and only once `capability.status` is already `verified`. */
+    approved_at: z.string().datetime().optional(),
   })
   .strict();
 

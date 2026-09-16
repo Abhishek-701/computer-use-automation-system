@@ -12,6 +12,7 @@ simulated.
 | `replay-outcomes/boom/` | A seeded HTTP 500 (`?boom=1`) — `status: "failed"`, with `failure.evidence_ref` pointing at a real captured screenshot of the error page. The third bucket of the taxonomy: a hard failure, distinct from both of the above. `log.jsonl` alongside it, same guarantee as `replay-success/` and `replay-outcomes/member_not_found/`. |
 | `escalation/` | A real intervention: raised, handed off, resumed on the same live session, re-anchored, and completed. See its own README for the full cycle and what's mocked. |
 | `tenant-reuse/` | Stretch goal: the real discovered artifact, unmodified, replayed successfully against a second live instance of the same app with a differently-labeled field — via a two-line `overlays` patch, not a re-recording. Includes a control run proving the overlay is load-bearing (fails without it). See its own README. |
+| `stability/` | Stretch goal: 3 runs against a not-found input (all `business_outcome`, correctly refused promotion), then 5 runs against a working input (all `success`, promoted draft → verified → approved), then a final replay with no `--allow-draft` flag succeeding — the real functional payoff. See its own README. |
 
 The target app seeds nine distinct outcome conditions in total; this
 baseline commits one business outcome and one hard failure — the two

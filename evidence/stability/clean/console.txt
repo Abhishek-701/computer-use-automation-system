@@ -1,0 +1,38 @@
+$ npm run stability -- --capability member.savings_balance.lookup --input member_id=10001 --runs 5
+
+running 'member.savings_balance.lookup' 5 times against http://localhost:3000 ...
+  [run 1/5] success
+  [run 2/5] success
+  [run 3/5] success
+  [run 4/5] success
+  [run 5/5] success
+
+{
+  "runs": 5,
+  "successes": 5,
+  "business_outcomes": 0,
+  "failures": 0,
+  "drift_events": 0,
+  "checked_at": "2026-09-16T07:03:44.394Z"
+}
+note: drift_events is measured over successful runs only — business_outcome/failed results carry no locator warnings.
+wrote provenance.stability to .../artifacts/member.savings_balance.lookup.json
+eligible for promotion — run: npm run show -- --capability member.savings_balance.lookup --promote
+
+$ npm run show -- --capability member.savings_balance.lookup --promote
+
+promoted 'member.savings_balance.lookup': draft -> verified (evidence: 5/5 clean runs, 0 drift, checked 2026-09-16T07:03:44.394Z)
+
+$ npm run show -- --capability member.savings_balance.lookup --approve
+
+approved 'member.savings_balance.lookup': verified -> approved
+
+$ npm run replay -- --capability member.savings_balance.lookup --input member_id=10001
+  (no --allow-draft flag — and it works, because the artifact is no
+  longer a draft)
+
+{
+  "status": "success",
+  ...
+  "outputs": { "savings_balance": "$4,231.10" }
+}

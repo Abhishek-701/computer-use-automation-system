@@ -2,18 +2,25 @@
 /**
  * CLI entry point (SPEC.md §4, §17): discover | replay | show | catalog | stability.
  *
- * `catalog` and `stability` are optional tiers (SPEC.md §15 T1/T2) and
- * are not implemented — they print a clear message and exit non-zero
- * rather than silently doing nothing or crashing on a missing module.
+ * `catalog` is an optional tier (SPEC.md §15 T1) and is not implemented —
+ * it prints a clear message and exits non-zero rather than silently
+ * doing nothing or crashing on a missing module. `stability` (T2) *is*
+ * implemented, as the "confidence & approval" + "multi-run stability"
+ * stretch goals: it replays an artifact N times, tallies the result, and
+ * writes `provenance.stability` to the artifact file — but never itself
+ * changes `capability.status`. That stays a `show --promote`/`--approve`
+ * action: a score is evidence for a human decision, not the decision
+ * (REPORT.md §2's whole reason the draft gate exists).
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { replay } from "../replay/engine.js";
+import { isEligibleForVerification, summarizeStability, type StabilitySample } from "../replay/stability.js";
 import { runDiscovery } from "../discovery/loop.js";
 import { parseGoalSpec } from "../discovery/prompt.js";
-import { parseArtifact } from "../schema/artifact.js";
+import { parseArtifact, type Artifact } from "../schema/artifact.js";
 import { loadPolicy, type PolicyT } from "../policy/gate.js";
 import { PlaywrightWebAdapter } from "../surface/web.playwright.js";
 import { EvidenceLogger, redactedFieldsFromArtifact } from "../evidence/logger.js";
@@ -167,6 +174,15 @@ async function cmdReplay(args: string[]): Promise<number> {
   return result.status === "success" || result.status === "business_outcome" ? 0 : 1;
 }
 
+/**
+ * Reads, validates, and prints an artifact — and, with `--promote` /
+ * `--approve`, mutates its `capability.status` in place. Both are
+ * explicit, one-at-a-time human actions guarding real preconditions:
+ * `--promote` (draft -> verified) refuses without a clean
+ * `provenance.stability` report on file; `--approve` (verified ->
+ * approved) refuses unless already verified. Neither can be triggered
+ * by a computed score alone — see cmdStability.
+ */
 function cmdShow(args: string[]): number {
   const parsed = parseArgs(args);
   const capabilityId = parsed.values["capability"];
@@ -174,13 +190,125 @@ function cmdShow(args: string[]): number {
     console.error("show requires --capability <id>");
     return 1;
   }
-  const raw = JSON.parse(readFileSync(`${ARTIFACTS_DIR}${capabilityId}.json`, "utf-8"));
-  const result = parseArtifact(raw);
-  if (!result.ok) {
-    console.error("invalid artifact:\n" + result.errors.join("\n"));
+  const artifactPath = `${ARTIFACTS_DIR}${capabilityId}.json`;
+  const raw = JSON.parse(readFileSync(artifactPath, "utf-8"));
+  const parsedResult = parseArtifact(raw);
+  if (!parsedResult.ok) {
+    console.error("invalid artifact:\n" + parsedResult.errors.join("\n"));
     return 1;
   }
-  console.log(JSON.stringify(result.artifact, null, 2));
+  let artifact: Artifact = parsedResult.artifact;
+  let mutated = false;
+
+  if (parsed.flags.has("promote")) {
+    if (artifact.capability.status !== "draft") {
+      console.error(`cannot promote: status is '${artifact.capability.status}', not 'draft'`);
+      return 1;
+    }
+    const report = artifact.provenance.stability;
+    if (!report || !isEligibleForVerification(report)) {
+      console.error(
+        `cannot promote: no clean provenance.stability report on file. Run: npm run stability -- --capability ${capabilityId} --input <k=v> [--runs N]`,
+      );
+      return 1;
+    }
+    artifact = { ...artifact, capability: { ...artifact.capability, status: "verified" } };
+    console.log(`promoted '${capabilityId}': draft -> verified (evidence: ${report.successes}/${report.runs} clean runs, 0 drift, checked ${report.checked_at})`);
+    mutated = true;
+  }
+
+  if (parsed.flags.has("approve")) {
+    if (artifact.capability.status !== "verified") {
+      console.error(`cannot approve: status is '${artifact.capability.status}', not 'verified' — promote it first`);
+      return 1;
+    }
+    artifact = {
+      ...artifact,
+      capability: { ...artifact.capability, status: "approved" },
+      provenance: { ...artifact.provenance, approved_at: new Date().toISOString() },
+    };
+    console.log(`approved '${capabilityId}': verified -> approved`);
+    mutated = true;
+  }
+
+  if (mutated) writeFileSync(artifactPath, JSON.stringify(artifact, null, 2) + "\n", "utf-8");
+
+  console.log(JSON.stringify(artifact, null, 2));
+  return 0;
+}
+
+async function cmdStability(args: string[]): Promise<number> {
+  const parsed = parseArgs(args);
+  const capabilityId = parsed.values["capability"];
+  if (!capabilityId) {
+    console.error("stability requires --capability <id> --input k=v [--runs N]");
+    return 1;
+  }
+  const artifactPath = `${ARTIFACTS_DIR}${capabilityId}.json`;
+  const raw = JSON.parse(readFileSync(artifactPath, "utf-8"));
+  const parsedArtifact = parseArtifact(raw);
+  if (!parsedArtifact.ok) {
+    console.error("invalid artifact:\n" + parsedArtifact.errors.join("\n"));
+    return 1;
+  }
+
+  const runs = Number(parsed.values["runs"] ?? 5);
+  const baseUrl = parsed.values["base-url"] ?? DEFAULT_BASE_URL;
+  const policy = loadPolicyForBaseUrl(baseUrl);
+  const tenant = parsed.values["tenant"];
+
+  console.log(`running '${capabilityId}' ${runs} times against ${baseUrl} ...`);
+  const samples: StabilitySample[] = [];
+  for (let i = 0; i < runs; i++) {
+    // Sequential, not Promise.all: each run launches its own Chromium
+    // instance, and this is a stability *measurement*, not a throughput
+    // test — parallel runs would also make timing meaningless.
+    const result = await replay({
+      artifact: parsedArtifact.artifact,
+      inputs: parsed.inputs,
+      baseUrl,
+      policy,
+      // Deliberate: this is a controlled, explicit, human-invoked
+      // measurement run against a possibly-draft artifact, not the
+      // unattended production replay --allow-draft's gate exists to
+      // stop (REPORT.md §2). It never writes capability.status itself.
+      allowDraft: true,
+      ...(tenant ? { tenant } : {}),
+      createAdapter: (url) => PlaywrightWebAdapter.create(url, { headless: true }),
+    });
+    const detail = result.status === "failed" || result.status === "failed_dirty" ? ` (${result.failure?.error_class})` : "";
+    console.log(`  [run ${i + 1}/${runs}] ${result.status}${detail}`);
+    samples.push(result);
+  }
+
+  const report = summarizeStability(samples);
+  const eligible = isEligibleForVerification(report);
+  console.log(`\n${JSON.stringify(report, null, 2)}`);
+  console.log(`note: drift_events is measured over successful runs only — business_outcome/failed results carry no locator warnings.`);
+
+  const artifact = parsedArtifact.artifact;
+  const updated: Artifact = {
+    ...artifact,
+    provenance: {
+      ...artifact.provenance,
+      stability: report,
+      // One counter, not two disagreeing ones: a stability batch's
+      // successes feed the same verified_replays field discovery's
+      // own EDGE-27 check seeded, rather than living beside it unread.
+      ...(report.successes > 0 ? { verified_replays: artifact.provenance.verified_replays + report.successes, last_verified_at: report.checked_at } : {}),
+    },
+  };
+  writeFileSync(artifactPath, JSON.stringify(updated, null, 2) + "\n", "utf-8");
+  console.log(`wrote provenance.stability to ${artifactPath}`);
+
+  if (artifact.capability.status === "draft") {
+    console.log(
+      eligible
+        ? `eligible for promotion — run: npm run show -- --capability ${capabilityId} --promote`
+        : `not eligible for promotion: needs >=1 success, 0 failures, 0 locator drift across all ${runs} runs`,
+    );
+  }
+
   return 0;
 }
 
@@ -212,7 +340,7 @@ async function main(): Promise<void> {
       code = cmdNotImplemented("catalog", "T1");
       break;
     case "stability":
-      code = cmdNotImplemented("stability", "T2");
+      code = await cmdStability(rest);
       break;
     default:
       console.error(`unknown command '${command ?? ""}'. Usage: discover | replay | show | catalog | stability`);
