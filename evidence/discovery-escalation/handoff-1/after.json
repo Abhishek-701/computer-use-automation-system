@@ -1,0 +1,56 @@
+{
+  "url": "http://localhost:3000/members/search?interstitial=1",
+  "nodes": [
+    {
+      "role": "cell",
+      "name": "",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "f2e10"
+    },
+    {
+      "role": "text",
+      "name": "Member ID",
+      "value": "Member ID",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "39a355412c91"
+    },
+    {
+      "role": "textbox",
+      "name": "Member ID",
+      "value": "",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "f2e11"
+    },
+    {
+      "role": "button",
+      "name": "Search",
+      "value": "",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "f2e12"
+    }
+  ]
+}

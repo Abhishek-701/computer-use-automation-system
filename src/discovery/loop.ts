@@ -15,6 +15,7 @@
  * a redundant afterthought.
  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import Anthropic from "@anthropic-ai/sdk";
@@ -25,6 +26,9 @@ import { replay } from "../replay/engine.js";
 import { ArtifactSchema, findRedactedLiteralLeaks, type Artifact, type StepT, type TargetSpecT } from "../schema/artifact.js";
 import type { ActionT } from "../schema/action.js";
 import type { Observation, ObserveOptions, SurfaceAdapter } from "../surface/adapter.js";
+import { captureScreenshot, saveObservationSnapshot, withoutScreenshot } from "../evidence/capture.js";
+import type { EvidenceLogger } from "../evidence/logger.js";
+import type { EscalationSession, InterventionRequest } from "../escalation/session.js";
 import { buildSystemPrompt, buildTools, type GoalSpec } from "./prompt.js";
 import { buildArtifact, newRunId, type TrajectoryStep } from "./recorder.js";
 
@@ -62,6 +66,32 @@ export interface DiscoveryParams {
   onStep?: (step: TrajectoryStep) => void;
   /** Called for every rejected tool call (EDGE-29) — a malformed call, a policy block, or a resolve/act failure. */
   onRejected?: (info: { toolName: string; reasoning: string; error: string }) => void;
+  /**
+   * When given, the model calling `report_stuck` raises a live human
+   * intervention on the SAME adapter instead of ending the run — the
+   * brief's own §3.6 first trigger ("the agent is stuck during
+   * discovery"), previously wired only for replay. Deliberately the
+   * "continue" branch, not "skip ahead" (see tests/escalation.test.ts's
+   * two proven replay branches): the human clears whatever blocked the
+   * model — an unexpected dialog, an ambiguous state, anything outside
+   * the closed action vocabulary — then control goes straight back to
+   * the model, which keeps discovering and recording normally. The
+   * human's own actions are never recorded as trajectory steps, same
+   * rule as replay's escalation (REPORT.md §5): an artifact must stay
+   * fully attributable to typed, recorded actions, or it isn't
+   * replayable later with no model in the loop.
+   */
+  escalation?: DiscoveryEscalationParams;
+}
+
+export interface DiscoveryEscalationParams {
+  session: EscalationSession;
+  evidenceDir: string;
+  logger?: EvidenceLogger;
+  interventionTimeoutMs?: number;
+  onIntervention?: (request: InterventionRequest) => void;
+  /** Bounded, never open-ended (same principle as dismiss_and_retry's `max`). Default 2. */
+  maxEscalations?: number;
 }
 
 function formatObservation(observation: Observation): string {
@@ -144,6 +174,69 @@ export function translateToolCall(toolUse: Anthropic.ToolUseBlock, goalSpec: Goa
   }
 }
 
+export type StuckEscalationOutcome = { outcome: "resumed"; observation: Observation } | { outcome: "abandoned" };
+
+/**
+ * Raises one intervention, waits for a human to clear it on the live
+ * `adapter`, and returns the post-handoff observation. Extracted out of
+ * `discover()`'s tool-calling loop specifically so it's unit-testable
+ * against a stub `SurfaceAdapter` (tests/discovery-escalation.test.ts) —
+ * `discover()` itself constructs a real Anthropic client unconditionally,
+ * and `npm test` must not need an API key (README).
+ */
+export async function handleStuckEscalation(params: {
+  adapter: SurfaceAdapter;
+  escalation: DiscoveryEscalationParams;
+  capabilityId: string;
+  goal: string;
+  runId: string;
+  stepIndex: number;
+  reason: string;
+  /** 1-based: which escalation this is within the current discovery run. */
+  attempt: number;
+}): Promise<StuckEscalationOutcome> {
+  const { adapter, escalation, capabilityId, goal, runId, stepIndex, reason, attempt } = params;
+  const timeoutMs = escalation.interventionTimeoutMs ?? 10 * 60 * 1000;
+  const dir = `${escalation.evidenceDir}/handoff-${attempt}`;
+
+  const beforeCapture = await captureScreenshot(adapter, dir, "before");
+  const request: InterventionRequest = {
+    capability_id: capabilityId,
+    capability_version: "n/a (discovery in progress)",
+    goal,
+    current_step_id: `discovery_step_${stepIndex}`,
+    reason_code: "discovery_stuck",
+    reason,
+    observation: withoutScreenshot(beforeCapture.observation),
+    screenshot_path: beforeCapture.screenshotPath,
+    session_id: escalation.session.sessionId,
+    resume_token: randomUUID(),
+    raised_at: new Date().toISOString(),
+    timeout_ms: timeoutMs,
+  };
+  escalation.session.raise(request, { observation: withoutScreenshot(beforeCapture.observation), screenshot_path: beforeCapture.screenshotPath });
+  saveObservationSnapshot(dir, "before", beforeCapture.observation);
+  escalation.logger?.warn("discovery_stuck_escalated", runId, { step_index: stepIndex, reason });
+  escalation.onIntervention?.(request);
+
+  const outcome = await escalation.session.waitForResume();
+  if (outcome === "abandoned") {
+    escalation.logger?.error("discovery_escalation_abandoned", runId, { step_index: stepIndex });
+    return { outcome: "abandoned" };
+  }
+
+  // Capture once, derive both the evidence copy and the observation the
+  // model sees from the SAME snapshot — observing twice would let
+  // whatever settled between the two calls diverge from what's on disk.
+  const afterCapture = await captureScreenshot(adapter, dir, "after").catch(() => null);
+  const afterObservation = afterCapture ? withoutScreenshot(afterCapture.observation) : await adapter.observe();
+  if (afterCapture) saveObservationSnapshot(dir, "after", afterCapture.observation);
+  escalation.session.complete(afterCapture ? { observation: afterObservation, screenshot_path: afterCapture.screenshotPath } : { observation: afterObservation });
+  escalation.logger?.info("discovery_resumed", runId, { step_index: stepIndex });
+
+  return { outcome: "resumed", observation: afterObservation };
+}
+
 function describeResolution(resolution: { status: string; matchCount?: number; reason?: string }): string {
   switch (resolution.status) {
     case "not_found":
@@ -191,6 +284,7 @@ export async function discover(params: DiscoveryParams): Promise<DiscoveryRunRes
     const capturedOutputs = new Set<string>();
 
     let stepIndex = 0;
+    let escalationCount = 0;
     for (;;) {
       if (stepIndex >= params.policy.max_steps) return finish("max_steps_exceeded");
       if (Date.now() - startedAtMs > (params.maxDurationMs ?? params.policy.max_duration_ms)) return finish("max_duration_exceeded");
@@ -220,6 +314,41 @@ export async function discover(params: DiscoveryParams): Promise<DiscoveryRunRes
         continue;
       }
       if (translated.kind === "stuck") {
+        const esc = params.escalation;
+        if (esc && escalationCount < (esc.maxEscalations ?? 2)) {
+          escalationCount++;
+          const result = await handleStuckEscalation({
+            adapter,
+            escalation: esc,
+            capabilityId: params.goalSpec.capabilityId,
+            goal: params.goalSpec.goal,
+            runId,
+            stepIndex,
+            reason: translated.reason,
+            attempt: escalationCount,
+          });
+          if (result.outcome === "abandoned") {
+            return finish("stuck", `escalation abandoned: ${translated.reason}`);
+          }
+          observation = result.observation;
+          // EDGE-08's rule applies here too: a human driving the live
+          // session could navigate anywhere, and origin/route is checked
+          // on every observation, not just explicit model actions.
+          if (checkOriginAndRoute(observation.url, params.policy).decision !== "allow") {
+            return finish("policy_blocked", "human intervention navigated outside the policy allowlist");
+          }
+          messages.push({
+            role: "user",
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: toolUse.id,
+                content: `A human operator intervened and cleared the blocker. Current page:\n${formatObservation(observation)}`,
+              },
+            ],
+          });
+          continue;
+        }
         return finish("stuck", translated.reason);
       }
 

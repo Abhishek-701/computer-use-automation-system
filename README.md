@@ -63,10 +63,10 @@ Expected results:
 
 A real run of both is committed at [`evidence/`](./evidence/) — see its README for the full
 index, including a genuine LLM-driven discovery run with the model's own reasoning at each step,
-a live escalation/resume cycle, a live cross-tenant reuse demo (the same discovered artifact,
-unmodified, replayed against a second app instance via a two-line `overlays` patch), and a live
-confidence/approval cycle (below) that took that same artifact from `draft` to `approved` on
-real replay evidence.
+a live escalation/resume cycle for both replay and discovery, a live cross-tenant reuse demo (the
+same discovered artifact, unmodified, replayed against a second app instance via a two-line
+`overlays` patch), and a live confidence/approval cycle (below) that took that same artifact from
+`draft` to `approved` on real replay evidence.
 
 ## CLI reference
 
@@ -74,7 +74,7 @@ real replay evidence.
 |---|---|
 | `npm run target-app` | Boot the hostile target app on `:3000` |
 | `npm run target-app:tenant-b` | Boot a second, differently-labeled instance on `:3001` — stand-in for another bank's install of the same vendor product; see [`evidence/tenant-reuse/`](./evidence/tenant-reuse/) |
-| `npm run discover -- --goal-spec <path> --input k=v [--goal "..."] [--target <url>] [--headed]` | Run a live LLM discovery session; verifies and persists to `artifacts/<capability_id>.json` |
+| `npm run discover -- --goal-spec <path> --input k=v [--goal "..."] [--target <url>] [--headed]` | Run a live LLM discovery session; verifies and persists to `artifacts/<capability_id>.json`. `--headed` is required for a human to actually be able to intervene if the model reports being stuck — see [`evidence/discovery-escalation/`](./evidence/discovery-escalation/) |
 | `npm run replay -- --capability <id> --input k=v [--tenant <id>] [--allow-draft] [--base-url <url>]` | Deterministic replay, no model in the loop |
 | `npm run stability -- --capability <id> --input k=v [--runs N]` | Replay N times (sequential), tally the batch, write `provenance.stability` — never changes `capability.status` itself; see [`evidence/stability/`](./evidence/stability/) |
 | `npm run show -- --capability <id> [--promote] [--approve]` | Validate and pretty-print a saved artifact; `--promote` (draft→verified) requires a clean `provenance.stability` report on file, `--approve` (verified→approved) requires already-verified — both explicit, human-invoked, never automatic |

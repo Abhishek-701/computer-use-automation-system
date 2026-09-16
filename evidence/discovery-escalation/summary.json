@@ -1,0 +1,153 @@
+{
+  "scenario": "discovery gets stuck on an unrecognized modal; a human clears it on the same live session; control returns to the model",
+  "intervention_request": {
+    "capability_id": "member.savings_balance.lookup",
+    "capability_version": "n/a (discovery in progress)",
+    "goal": "Look up member 10001 and read their current savings balance",
+    "current_step_id": "discovery_step_2",
+    "reason_code": "discovery_stuck",
+    "reason": "A modal dialog appeared ('System Announcement') that isn't in my closed action vocabulary — no tool lets me dismiss an alertdialog directly.",
+    "observation": {
+      "url": "http://localhost:3000/members/search?interstitial=1",
+      "nodes": [
+        {
+          "role": "generic",
+          "name": "",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e1"
+        },
+        {
+          "role": "alertdialog",
+          "name": "System Announcement",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e2"
+        },
+        {
+          "role": "generic",
+          "name": "",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e3"
+        },
+        {
+          "role": "strong",
+          "name": "",
+          "value": "System Announcement",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e5"
+        },
+        {
+          "role": "paragraph",
+          "name": "",
+          "value": "Scheduled maintenance tonight 11pm-1am. Some features may be unavailable.",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e6"
+        },
+        {
+          "role": "button",
+          "name": "Dismiss",
+          "value": "",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e7"
+        },
+        {
+          "role": "cell",
+          "name": "",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e16"
+        },
+        {
+          "role": "text",
+          "name": "Member ID",
+          "value": "Member ID",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "e9477dfc1a58"
+        },
+        {
+          "role": "textbox",
+          "name": "Member ID",
+          "value": "",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e17"
+        },
+        {
+          "role": "button",
+          "name": "Search",
+          "value": "",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e18"
+        }
+      ]
+    },
+    "screenshot_path": "evidence/discovery-escalation/handoff-1/before.png",
+    "session_id": "d5adb9f9-707b-4321-8eb3-fa1ac84d7d12",
+    "resume_token": "4600c25f-e346-4639-81ff-8521b121beaa",
+    "raised_at": "2026-09-16T21:24:23.497Z",
+    "timeout_ms": 30000
+  },
+  "resume_result": {
+    "ok": true
+  },
+  "outcome": "resumed",
+  "final_observation_url": "http://localhost:3000/members/search?interstitial=1",
+  "session_state_after": "automation"
+}
