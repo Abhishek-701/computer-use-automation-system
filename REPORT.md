@@ -67,8 +67,6 @@ Honest limits: screenshots and traces leak everything they show — target app d
 
 ## 7. Cuts
 
-Written as engineering, not apology.
-
 - **Idempotency and compensating actions.** `failed_dirty` names the problem instead of pretending automatic safe retry is possible. Real fix needs an app-level idempotency key (legacy UIs essentially never expose one) or a declared compensating action per mutating step. Would build the compensating-action declaration first — schema work, not infrastructure.
 - **The co-browsing console.** Mocked as a bare HTML page + a headed browser a human drives directly. The seam is `SurfaceAdapter` itself — a CDP-screencast console would sit between the human and the same adapter, not touch replay or discovery. Would build this first with more time; the biggest gap to a real product.
 - **Credential handling for re-login.** Session expiry escalates rather than re-authenticating (EDGE-18) — re-login needs credentials no component here should hold. Seam: a runtime secret provider the escalation session could call, whose output never touches an artifact or log line.
