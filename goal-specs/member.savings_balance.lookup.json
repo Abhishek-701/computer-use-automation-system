@@ -1,8 +1,8 @@
 {
-  "goal": "Look up member 10001 and read their current savings balance.",
+  "goal": "Look up member 10001 and read their name and current savings balance.",
   "capabilityId": "member.savings_balance.lookup",
   "capabilityName": "Look up member savings balance",
-  "capabilityDescription": "Given a member ID, returns the current savings balance.",
+  "capabilityDescription": "Given a member ID, returns the member's name and current savings balance.",
   "appId": "target-app-hostile-core-banking",
   "entryPoint": "/members/search",
   "policyRef": "src/policy/policy.default.json",
@@ -12,6 +12,7 @@
     { "name": "member_id", "type": "string", "required": true, "pattern": "^[0-9]{5}$", "redact": true, "example": "10001" }
   ],
   "outputs": [
+    { "name": "member_name", "type": "string", "required": true, "redact": true },
     { "name": "savings_balance", "type": "money", "required": true, "redact": true }
   ],
   "successCheckpoint": {

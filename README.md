@@ -58,7 +58,7 @@ front — the same parameterisation philosophy REPORT.md §2 argues for; `--goal
 optionally override the file's own goal text / entry point.
 
 Expected results:
-- `member_id=10001` → `status: "success"`, `outputs.savings_balance: "$4,231.10"`
+- `member_id=10001` → `status: "success"`, `outputs.member_name: "Jordan Ellis"`, `outputs.savings_balance: "$4,231.10"`
 - `member_id=99999` → `status: "business_outcome"`, `outcome.code: "member_not_found"`
 
 A real run of both is committed at [`evidence/`](./evidence/) — see its README for the full

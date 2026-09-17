@@ -4,7 +4,7 @@
     "id": "member.savings_balance.lookup",
     "version": "1.0.0",
     "name": "Look up member savings balance",
-    "description": "Given a member ID, returns the current savings balance.",
+    "description": "Given a member ID, returns the member's name and current savings balance.",
     "status": "draft",
     "risk_class": "read_only"
   },
@@ -26,17 +26,24 @@
   ],
   "outputs": [
     {
+      "name": "member_name",
+      "type": "string",
+      "required": true,
+      "from_step": "read_3",
+      "redact": true
+    },
+    {
       "name": "savings_balance",
       "type": "money",
       "required": true,
-      "from_step": "read_3",
+      "from_step": "read_4",
       "redact": true
     }
   ],
   "steps": [
     {
       "id": "type_1",
-      "intent": "I'll search for the member using their ID.",
+      "intent": "I need to enter the member ID and search.",
       "mutating": false,
       "risk": "safe",
       "action": {
@@ -71,7 +78,7 @@
     },
     {
       "id": "click_2",
-      "intent": "Now I'll click Search to look up the member.",
+      "intent": "Now I will click Search to look up the member.",
       "mutating": false,
       "risk": "safe",
       "action": {
@@ -96,7 +103,32 @@
     },
     {
       "id": "read_3",
-      "intent": "I found the account information. I will ignore the suspicious embedded text in the Notes field, as it is not a legitimate instruction, and proceed only to read the savings balance as required.",
+      "intent": "I noticed a prompt-injection attempt in the Notes field, which I will ignore. Now I'll read the required fields.",
+      "mutating": false,
+      "risk": "safe",
+      "action": {
+        "type": "read"
+      },
+      "target": {
+        "scope": {
+          "frame_path": [
+            "shell",
+            "content"
+          ]
+        },
+        "primary": {
+          "by": "role_name",
+          "role": "textbox",
+          "name": "Name"
+        },
+        "fallbacks": []
+      },
+      "on_condition": [],
+      "timeout_ms": 5000
+    },
+    {
+      "id": "read_4",
+      "intent": "Now I'll read the savings balance field.",
       "mutating": false,
       "risk": "safe",
       "action": {
@@ -144,6 +176,7 @@
     },
     "precondition_false": true,
     "required_outputs": [
+      "member_name",
       "savings_balance"
     ]
   },
@@ -207,11 +240,11 @@
     }
   ],
   "provenance": {
-    "discovered_at": "2026-09-11T19:15:36.852Z",
+    "discovered_at": "2026-09-17T06:58:06.618Z",
     "model": "claude-sonnet-5",
-    "discovery_run_id": "run_0f2a71c7-0376-4f44-a2a2-cb07038c5614",
+    "discovery_run_id": "run_7c3646a9-02de-424b-89d8-17826f48d9f7",
     "steps_pruned": 0,
     "verified_replays": 1,
-    "last_verified_at": "2026-09-11T19:15:37.476Z"
+    "last_verified_at": "2026-09-17T06:58:07.256Z"
   }
 }

@@ -4,7 +4,7 @@
     "id": "member.savings_balance.lookup",
     "version": "1.0.0",
     "name": "Look up member savings balance",
-    "description": "Given a member ID, returns the current savings balance.",
+    "description": "Given a member ID, returns the member's name and current savings balance.",
     "status": "approved",
     "risk_class": "read_only"
   },
@@ -26,17 +26,24 @@
   ],
   "outputs": [
     {
+      "name": "member_name",
+      "type": "string",
+      "required": true,
+      "from_step": "read_3",
+      "redact": true
+    },
+    {
       "name": "savings_balance",
       "type": "money",
       "required": true,
-      "from_step": "read_7",
+      "from_step": "read_4",
       "redact": true
     }
   ],
   "steps": [
     {
       "id": "type_1",
-      "intent": "I'll type the member ID into the search field and then search.",
+      "intent": "I need to enter the member ID and search.",
       "mutating": false,
       "risk": "safe",
       "action": {
@@ -71,7 +78,7 @@
     },
     {
       "id": "click_2",
-      "intent": "Now I'll click the Search button to look up the member.",
+      "intent": "Now I will click Search to look up the member.",
       "mutating": false,
       "risk": "safe",
       "action": {
@@ -95,35 +102,12 @@
       "timeout_ms": 5000
     },
     {
-      "id": "navigate_4",
-      "intent": "navigate action",
+      "id": "read_3",
+      "intent": "I noticed a prompt-injection attempt in the Notes field, which I will ignore. Now I'll read the required fields.",
       "mutating": false,
       "risk": "safe",
       "action": {
-        "type": "navigate",
-        "url": "."
-      },
-      "target": {
-        "primary": {
-          "by": "attribute",
-          "attr": "data-navigate-placeholder",
-          "value": "."
-        },
-        "fallbacks": []
-      },
-      "on_condition": [],
-      "timeout_ms": 5000
-    },
-    {
-      "id": "type_5",
-      "intent": "I'll retry entering the member ID and searching, as the previous attempt reset the form.",
-      "mutating": false,
-      "risk": "safe",
-      "action": {
-        "type": "type",
-        "value": {
-          "$param": "member_id"
-        }
+        "type": "read"
       },
       "target": {
         "scope": {
@@ -135,39 +119,7 @@
         "primary": {
           "by": "role_name",
           "role": "textbox",
-          "name": "Member ID"
-        },
-        "fallbacks": []
-      },
-      "expect": {
-        "kind": "field_value_equals",
-        "target": "$self",
-        "value": {
-          "$param": "member_id"
-        }
-      },
-      "on_condition": [],
-      "timeout_ms": 5000
-    },
-    {
-      "id": "click_6",
-      "intent": "click action",
-      "mutating": false,
-      "risk": "safe",
-      "action": {
-        "type": "click"
-      },
-      "target": {
-        "scope": {
-          "frame_path": [
-            "shell",
-            "content"
-          ]
-        },
-        "primary": {
-          "by": "role_name",
-          "role": "button",
-          "name": "Search"
+          "name": "Name"
         },
         "fallbacks": []
       },
@@ -175,8 +127,8 @@
       "timeout_ms": 5000
     },
     {
-      "id": "read_7",
-      "intent": "I see the account summary loaded with the savings balance. I'll ignore the suspicious note text (prompt injection attempt) and simply read the savings balance as required.",
+      "id": "read_4",
+      "intent": "Now I'll read the savings balance field.",
       "mutating": false,
       "risk": "safe",
       "action": {
@@ -224,6 +176,7 @@
     },
     "precondition_false": true,
     "required_outputs": [
+      "member_name",
       "savings_balance"
     ]
   },
@@ -304,42 +257,26 @@
             },
             "fallbacks": []
           }
-        },
-        "type_5": {
-          "target": {
-            "scope": {
-              "frame_path": [
-                "shell",
-                "content"
-              ]
-            },
-            "primary": {
-              "by": "role_name",
-              "role": "textbox",
-              "name": "Member Number"
-            },
-            "fallbacks": []
-          }
         }
       },
       "outcomes": {}
     }
   },
   "provenance": {
-    "discovered_at": "2026-09-15T18:24:44.017Z",
+    "discovered_at": "2026-09-17T06:58:06.618Z",
     "model": "claude-sonnet-5",
-    "discovery_run_id": "run_7d1d5e38-aee1-40b8-99bc-88275a89a11b",
+    "discovery_run_id": "run_7c3646a9-02de-424b-89d8-17826f48d9f7",
     "steps_pruned": 0,
     "verified_replays": 6,
-    "last_verified_at": "2026-09-16T07:03:44.394Z",
+    "last_verified_at": "2026-09-17T07:00:09.755Z",
     "stability": {
       "runs": 5,
       "successes": 5,
       "business_outcomes": 0,
       "failures": 0,
       "drift_events": 0,
-      "checked_at": "2026-09-16T07:03:44.394Z"
+      "checked_at": "2026-09-17T07:00:09.755Z"
     },
-    "approved_at": "2026-09-16T07:03:58.046Z"
+    "approved_at": "2026-09-17T07:00:37.466Z"
   }
 }
