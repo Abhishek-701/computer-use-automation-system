@@ -25,7 +25,7 @@ import { evaluateCondition } from "../replay/detect.js";
 import { replay } from "../replay/engine.js";
 import { ArtifactSchema, findRedactedLiteralLeaks, type Artifact, type StepT, type TargetSpecT } from "../schema/artifact.js";
 import type { ActionT } from "../schema/action.js";
-import type { Observation, ObserveOptions, SurfaceAdapter } from "../surface/adapter.js";
+import type { Observation, SurfaceAdapter } from "../surface/adapter.js";
 import { captureScreenshot, saveObservationSnapshot, withoutScreenshot } from "../evidence/capture.js";
 import type { EvidenceLogger } from "../evidence/logger.js";
 import { runReplayWithEscalation, type EscalationSession, type InterventionRequest } from "../escalation/session.js";
