@@ -28,7 +28,7 @@ import type { ActionT } from "../schema/action.js";
 import type { Observation, ObserveOptions, SurfaceAdapter } from "../surface/adapter.js";
 import { captureScreenshot, saveObservationSnapshot, withoutScreenshot } from "../evidence/capture.js";
 import type { EvidenceLogger } from "../evidence/logger.js";
-import type { EscalationSession, InterventionRequest } from "../escalation/session.js";
+import { runReplayWithEscalation, type EscalationSession, type InterventionRequest } from "../escalation/session.js";
 import { buildSystemPrompt, buildTools, type GoalSpec } from "./prompt.js";
 import { buildArtifact, newRunId, type TrajectoryStep } from "./recorder.js";
 
@@ -89,7 +89,8 @@ export interface DiscoveryEscalationParams {
   evidenceDir: string;
   logger?: EvidenceLogger;
   interventionTimeoutMs?: number;
-  onIntervention?: (request: InterventionRequest) => void;
+  /** `adapter` is the same live adapter discovery is using — see the matching doc comment on escalation/session.ts's EscalationParams.onIntervention. */
+  onIntervention?: (request: InterventionRequest, adapter: SurfaceAdapter) => void;
   /** Bounded, never open-ended (same principle as dismiss_and_retry's `max`). Default 2. */
   maxEscalations?: number;
 }
@@ -217,7 +218,7 @@ export async function handleStuckEscalation(params: {
   escalation.session.raise(request, { observation: withoutScreenshot(beforeCapture.observation), screenshot_path: beforeCapture.screenshotPath });
   saveObservationSnapshot(dir, "before", beforeCapture.observation);
   escalation.logger?.warn("discovery_stuck_escalated", runId, { step_index: stepIndex, reason });
-  escalation.onIntervention?.(request);
+  escalation.onIntervention?.(request, adapter);
 
   const outcome = await escalation.session.waitForResume();
   if (outcome === "abandoned") {
@@ -237,6 +238,70 @@ export async function handleStuckEscalation(params: {
   return { outcome: "resumed", observation: afterObservation };
 }
 
+/**
+ * The third of the brief's §3.6 triggers: "a risky/irreversible step
+ * needs a person to decide." Distinct from `handleStuckEscalation`
+ * (which clears an unrelated blocker) — here nothing is wrong with the
+ * page, the model's *own proposed action* is what needs a human's
+ * yes/no, so nothing on the live page changes as a result of the
+ * decision itself (the eventual `adapter.act()` call, if approved,
+ * happens back in `discover()`'s loop, not here — invariant #1 holds:
+ * the model still never executes anything directly, and now neither
+ * does approval; only enforce()'s caller does, and only after a human
+ * says so). Approved: the loop falls through to the normal
+ * resolve+act+record path, so the resulting trajectory step is
+ * attributed to the model's typed proposal, not an unattributed human
+ * action — the artifact stays fully replayable.
+ */
+export async function handleApprovalEscalation(params: {
+  adapter: SurfaceAdapter;
+  escalation: DiscoveryEscalationParams;
+  capabilityId: string;
+  goal: string;
+  runId: string;
+  stepIndex: number;
+  /** Human-readable description of the pending action, e.g. `click on button named "Confirm"`. */
+  actionDescription: string;
+  attempt: number;
+}): Promise<{ approved: boolean }> {
+  const { adapter, escalation, capabilityId, goal, runId, stepIndex, actionDescription, attempt } = params;
+  const timeoutMs = escalation.interventionTimeoutMs ?? 10 * 60 * 1000;
+  const dir = `${escalation.evidenceDir}/approval-${attempt}`;
+
+  const capture = await captureScreenshot(adapter, dir, "pending");
+  const request: InterventionRequest = {
+    capability_id: capabilityId,
+    capability_version: "n/a (discovery in progress)",
+    goal,
+    current_step_id: `discovery_step_${stepIndex}`,
+    reason_code: "requires_approval",
+    reason: `the model wants to ${actionDescription}, which policy classifies as irreversible — approve to let it execute, or let this time out to keep it blocked`,
+    observation: withoutScreenshot(capture.observation),
+    screenshot_path: capture.screenshotPath,
+    session_id: escalation.session.sessionId,
+    resume_token: randomUUID(),
+    raised_at: new Date().toISOString(),
+    timeout_ms: timeoutMs,
+  };
+  escalation.session.raise(request, { observation: withoutScreenshot(capture.observation), screenshot_path: capture.screenshotPath });
+  saveObservationSnapshot(dir, "pending", capture.observation);
+  escalation.logger?.warn("discovery_approval_requested", runId, { step_index: stepIndex, action: actionDescription });
+  escalation.onIntervention?.(request, adapter);
+
+  const outcome = await escalation.session.waitForResume();
+  if (outcome === "abandoned") {
+    escalation.logger?.error("discovery_approval_abandoned", runId, { step_index: stepIndex });
+    return { approved: false };
+  }
+
+  // Deliberately a no-op state delta: unlike handleStuckEscalation,
+  // approving doesn't itself change the page, so before/after are the
+  // same capture — only completes the state machine's cycle.
+  escalation.session.complete({ observation: withoutScreenshot(capture.observation), screenshot_path: capture.screenshotPath });
+  escalation.logger?.info("discovery_approval_granted", runId, { step_index: stepIndex, action: actionDescription });
+  return { approved: true };
+}
+
 function describeResolution(resolution: { status: string; matchCount?: number; reason?: string }): string {
   switch (resolution.status) {
     case "not_found":
@@ -248,6 +313,32 @@ function describeResolution(resolution: { status: string; matchCount?: number; r
     default:
       return "resolution failed";
   }
+}
+
+/**
+ * Poll until two consecutive observations agree (same node list, same
+ * url) or `maxWaitMs` elapses — never a fixed `sleep(N)` on faith, same
+ * determinism rule REPORT.md §3 states for replay's checkpoints. Needed
+ * specifically here: `SurfaceAdapter.act()`'s click has no built-in wait
+ * for a navigation it triggers (a form submit reloading a nested
+ * iframe, in particular), and unlike replay — which always polls via
+ * `waitForCondition` against a *declared* condition — discovery has no
+ * such condition to poll for; it must observe *something* to decide
+ * the model's next turn. A single immediate `observe()` intermittently
+ * caught the pre-navigation DOM (found live: an approved irreversible
+ * click reliably raced ahead of the confirmation page it triggered,
+ * and the model — seeing the unchanged form — retried from scratch).
+ */
+export async function settledObserve(adapter: SurfaceAdapter, maxWaitMs = 3000, intervalMs = 150): Promise<Observation> {
+  let prev = await adapter.observe();
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    const next = await adapter.observe();
+    if (next.url === prev.url && JSON.stringify(next.nodes) === JSON.stringify(prev.nodes)) return next;
+    prev = next;
+  }
+  return prev;
 }
 
 export async function discover(params: DiscoveryParams): Promise<DiscoveryRunResult> {
@@ -366,9 +457,37 @@ export async function discover(params: DiscoveryParams): Promise<DiscoveryRunRes
       };
       const decision = enforce(action, { url: observation.url, mode: "discovery", step: liveStep }, params.policy);
       if (decision.decision !== "allow") {
-        params.onRejected?.({ toolName: toolUse.name, reasoning, error: `blocked by policy: ${decision.reason}` });
-        messages.push({ role: "user", content: [{ type: "tool_result", tool_use_id: toolUse.id, is_error: true, content: `blocked by policy: ${decision.reason}` }] });
-        continue;
+        const esc = params.escalation;
+        if (decision.decision === "require_approval" && esc && escalationCount < (esc.maxEscalations ?? 2)) {
+          escalationCount++;
+          const approval = await handleApprovalEscalation({
+            adapter,
+            escalation: esc,
+            capabilityId: params.goalSpec.capabilityId,
+            goal: params.goalSpec.goal,
+            runId,
+            stepIndex,
+            actionDescription: target?.primary.by === "role_name" ? `${toolUse.name} on ${target.primary.role} named "${target.primary.name ?? ""}"` : toolUse.name,
+            attempt: escalationCount,
+          });
+          if (approval.approved) {
+            // Fall through to the normal resolve+act+record path below,
+            // exactly as if enforce() had returned "allow" — the
+            // trajectory step stays attributed to the model's own
+            // typed proposal, not an unattributed human action.
+          } else {
+            params.onRejected?.({ toolName: toolUse.name, reasoning, error: `blocked by policy: ${decision.reason} (human did not approve)` });
+            messages.push({
+              role: "user",
+              content: [{ type: "tool_result", tool_use_id: toolUse.id, is_error: true, content: `blocked by policy: ${decision.reason} — a human reviewed this and did not approve it` }],
+            });
+            continue;
+          }
+        } else {
+          params.onRejected?.({ toolName: toolUse.name, reasoning, error: `blocked by policy: ${decision.reason}` });
+          messages.push({ role: "user", content: [{ type: "tool_result", tool_use_id: toolUse.id, is_error: true, content: `blocked by policy: ${decision.reason}` }] });
+          continue;
+        }
       }
 
       let capturedValue: string | undefined;
@@ -407,7 +526,7 @@ export async function discover(params: DiscoveryParams): Promise<DiscoveryRunRes
       params.onStep?.(recordedStep);
       if (outputName && capturedValue !== undefined) capturedOutputs.add(outputName);
 
-      observation = await adapter.observe();
+      observation = await settledObserve(adapter);
       if (checkOriginAndRoute(observation.url, params.policy).decision !== "allow") {
         return finish("policy_blocked", "navigation left the policy allowlist mid-run");
       }
@@ -485,14 +604,49 @@ export async function runDiscovery(params: RunDiscoveryParams): Promise<RunDisco
       artifact = { ...artifact, provenance: { ...artifact.provenance, steps_pruned: stepsPruned } };
     }
 
-    const verifyResult = await replay({
-      artifact,
-      inputs: params.inputValues,
-      baseUrl: params.baseUrl,
-      policy: params.policy,
-      allowDraft: true,
-      createAdapter: params.createAdapter,
-    });
+    // A mutating/irreversible capability's own recorded step will hit
+    // the exact same require_approval gate on this fresh verification
+    // replay that discovery's live run just cleared with a human's
+    // approval (EDGE-27's verification is a separate execution, from a
+    // separate adapter — every execution of an irreversible action
+    // needs its own authorization, not just the first). When escalation
+    // is configured, verify through the SAME already-tested mechanism
+    // replay uses in production (runReplayWithEscalation; requires_approval
+    // is already in its isStuckCondition trigger set) rather than a
+    // plain replay() that would just fail here for any such capability.
+    let verifyResult: Awaited<ReturnType<typeof replay>>;
+    if (params.escalation) {
+      const verifyAdapter = await params.createAdapter(new URL(artifact.target.entry_point, params.baseUrl).toString());
+      try {
+        verifyResult = await runReplayWithEscalation(
+          {
+            artifact,
+            inputs: params.inputValues,
+            baseUrl: params.baseUrl,
+            policy: params.policy,
+            allowDraft: true,
+            createAdapter: params.createAdapter,
+            session: params.escalation.session,
+            evidenceDir: params.escalation.evidenceDir,
+            ...(params.escalation.logger ? { logger: params.escalation.logger } : {}),
+            ...(params.escalation.interventionTimeoutMs ? { interventionTimeoutMs: params.escalation.interventionTimeoutMs } : {}),
+            ...(params.escalation.onIntervention ? { onIntervention: params.escalation.onIntervention } : {}),
+          },
+          verifyAdapter,
+        );
+      } finally {
+        await verifyAdapter.close();
+      }
+    } else {
+      verifyResult = await replay({
+        artifact,
+        inputs: params.inputValues,
+        baseUrl: params.baseUrl,
+        policy: params.policy,
+        allowDraft: true,
+        createAdapter: params.createAdapter,
+      });
+    }
     if (verifyResult.status !== "success") return undefined;
 
     const verified: Artifact = {

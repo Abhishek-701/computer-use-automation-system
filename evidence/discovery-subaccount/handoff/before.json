@@ -1,0 +1,133 @@
+{
+  "url": "http://localhost:3000/members/search",
+  "nodes": [
+    {
+      "role": "generic",
+      "name": "",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "f2e1"
+    },
+    {
+      "role": "heading",
+      "name": "Open sub-account",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "f2e2"
+    },
+    {
+      "role": "cell",
+      "name": "",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "f2e22"
+    },
+    {
+      "role": "text",
+      "name": "Account type",
+      "value": "Account type",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "69be4b24f121"
+    },
+    {
+      "role": "combobox",
+      "name": "Account type",
+      "value": "",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "f2e12"
+    },
+    {
+      "role": "option",
+      "name": "Checking",
+      "value": "",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "d9d84b48786b"
+    },
+    {
+      "role": "option",
+      "name": "Savings",
+      "value": "",
+      "state": {
+        "visible": true,
+        "checked": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "aab0209f0cbb"
+    },
+    {
+      "role": "text",
+      "name": "Initial deposit",
+      "value": "Initial deposit",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "df9940f46d1a"
+    },
+    {
+      "role": "textbox",
+      "name": "Initial deposit",
+      "value": "500",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "f2e13"
+    },
+    {
+      "role": "button",
+      "name": "Confirm",
+      "value": "",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "f2e14"
+    }
+  ]
+}

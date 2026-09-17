@@ -1,0 +1,55 @@
+{
+  "url": "http://localhost:3000/members/search",
+  "nodes": [
+    {
+      "role": "cell",
+      "name": "",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "f2e5"
+    },
+    {
+      "role": "heading",
+      "name": "Sub-account opened",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "f2e6"
+    },
+    {
+      "role": "text",
+      "name": "Account number",
+      "value": "Account number",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "8be751abfefd"
+    },
+    {
+      "role": "textbox",
+      "name": "Account number",
+      "value": "SA-10001-1831",
+      "state": {
+        "visible": true
+      },
+      "framePath": [
+        "frame",
+        "frame"
+      ],
+      "handle": "f2e7"
+    }
+  ]
+}

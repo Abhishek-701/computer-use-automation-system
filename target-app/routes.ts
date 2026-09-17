@@ -335,8 +335,11 @@ router.post("/members/:id/subaccount/new", async (req, res, next) => {
 
     const id = req.params["id"] ?? "";
     const accountNumber = `SA-${id}-${Math.floor(Math.random() * 9000 + 1000)}`;
+    const acctNumFieldId = rid("acct-num");
     const body = layoutTable(
-      `<h2>Sub-account opened</h2><p>Account number: ${esc(accountNumber)}</p>`,
+      `<h2>Sub-account opened</h2>
+       <label for="${acctNumFieldId}">Account number</label>
+       <input id="${acctNumFieldId}" type="text" value="${esc(accountNumber)}" readonly>`,
       1,
     );
     const content = withInterstitial(flags, req, body);

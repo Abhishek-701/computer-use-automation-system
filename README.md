@@ -68,6 +68,14 @@ same discovered artifact, unmodified, replayed against a second app instance via
 `overlays` patch), and a live confidence/approval cycle (below) that took that same artifact from
 `draft` to `approved` on real replay evidence.
 
+A second, genuinely discovered capability — [`goal-specs/member.subaccount.open.json`](./goal-specs/member.subaccount.open.json)
+— is mutating and irreversible, not read-only. Its final step (clicking "Confirm") is classified
+`risk: "irreversible"` by policy and always requires human approval; plain `npm run replay
+--capability member.subaccount.open ...` (no escalation wired) correctly refuses it with
+`status: "failed", error_class: "requires_approval"` every time, by design — see
+[`evidence/discovery-subaccount/`](./evidence/discovery-subaccount/) for the live discovery +
+approval + verification cycle that produced and proved it.
+
 ## CLI reference
 
 | Command | Purpose |

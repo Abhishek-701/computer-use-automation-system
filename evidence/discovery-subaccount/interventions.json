@@ -1,0 +1,294 @@
+[
+  {
+    "capability_id": "member.subaccount.open",
+    "capability_version": "n/a (discovery in progress)",
+    "goal": "Open a new savings sub-account for member 10001 with an initial deposit of 500, and reach the confirmation screen.",
+    "current_step_id": "discovery_step_6",
+    "reason_code": "requires_approval",
+    "reason": "the model wants to click on button named \"Confirm\", which policy classifies as irreversible — approve to let it execute, or let this time out to keep it blocked",
+    "observation": {
+      "url": "http://localhost:3000/members/search",
+      "nodes": [
+        {
+          "role": "generic",
+          "name": "",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e1"
+        },
+        {
+          "role": "heading",
+          "name": "Open sub-account",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e2"
+        },
+        {
+          "role": "cell",
+          "name": "",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e22"
+        },
+        {
+          "role": "text",
+          "name": "Account type",
+          "value": "Account type",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "743b16cf47e2"
+        },
+        {
+          "role": "combobox",
+          "name": "Account type",
+          "value": "",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e12"
+        },
+        {
+          "role": "option",
+          "name": "Checking",
+          "value": "",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "1933a5766ff1"
+        },
+        {
+          "role": "option",
+          "name": "Savings",
+          "value": "",
+          "state": {
+            "visible": true,
+            "checked": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "cc0c37b2f0bf"
+        },
+        {
+          "role": "text",
+          "name": "Initial deposit",
+          "value": "Initial deposit",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "1a24e5d260bb"
+        },
+        {
+          "role": "textbox",
+          "name": "Initial deposit",
+          "value": "500",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e13"
+        },
+        {
+          "role": "button",
+          "name": "Confirm",
+          "value": "",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e14"
+        }
+      ]
+    },
+    "screenshot_path": "evidence/discovery-subaccount/approval-1/pending.png",
+    "session_id": "ad35e725-8adc-4430-9c74-7951fceadf29",
+    "resume_token": "0102a586-f1ef-4322-93ae-b2c2b896675c",
+    "raised_at": "2026-09-17T05:55:53.780Z",
+    "timeout_ms": 30000
+  },
+  {
+    "capability_id": "member.subaccount.open",
+    "capability_version": "1.0.0",
+    "goal": "Given a member ID, account type, and initial deposit, opens a new sub-account and returns the generated account number. Mutating and irreversible: the final confirmation click requires human approval.",
+    "current_step_id": "click_6",
+    "reason_code": "requires_approval",
+    "reason": "expected: action does not require approval — observed: action is classified irreversible",
+    "observation": {
+      "url": "http://localhost:3000/members/search",
+      "nodes": [
+        {
+          "role": "generic",
+          "name": "",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e1"
+        },
+        {
+          "role": "heading",
+          "name": "Open sub-account",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e2"
+        },
+        {
+          "role": "cell",
+          "name": "",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e22"
+        },
+        {
+          "role": "text",
+          "name": "Account type",
+          "value": "Account type",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "69be4b24f121"
+        },
+        {
+          "role": "combobox",
+          "name": "Account type",
+          "value": "",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e12"
+        },
+        {
+          "role": "option",
+          "name": "Checking",
+          "value": "",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "d9d84b48786b"
+        },
+        {
+          "role": "option",
+          "name": "Savings",
+          "value": "",
+          "state": {
+            "visible": true,
+            "checked": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "aab0209f0cbb"
+        },
+        {
+          "role": "text",
+          "name": "Initial deposit",
+          "value": "Initial deposit",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "df9940f46d1a"
+        },
+        {
+          "role": "textbox",
+          "name": "Initial deposit",
+          "value": "500",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e13"
+        },
+        {
+          "role": "button",
+          "name": "Confirm",
+          "value": "",
+          "state": {
+            "visible": true
+          },
+          "framePath": [
+            "frame",
+            "frame"
+          ],
+          "handle": "f2e14"
+        }
+      ]
+    },
+    "screenshot_path": "evidence/discovery-subaccount/handoff/before.png",
+    "session_id": "ad35e725-8adc-4430-9c74-7951fceadf29",
+    "resume_token": "3286fc00-db34-4c68-9be4-01cae997d3c2",
+    "raised_at": "2026-09-17T05:56:03.012Z",
+    "timeout_ms": 30000
+  }
+]

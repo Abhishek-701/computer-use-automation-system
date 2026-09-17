@@ -1,0 +1,28 @@
+{
+  "goal": "Open a new savings sub-account for member 10001 with an initial deposit of 500, and reach the confirmation screen.",
+  "capabilityId": "member.subaccount.open",
+  "capabilityName": "Open a member sub-account",
+  "capabilityDescription": "Given a member ID, account type, and initial deposit, opens a new sub-account and returns the generated account number. Mutating and irreversible: the final confirmation click requires human approval.",
+  "appId": "target-app-hostile-core-banking",
+  "entryPoint": "/members/search",
+  "policyRef": "src/policy/policy.default.json",
+  "riskClass": "mutating",
+  "defaultFramePath": ["shell", "content"],
+  "inputs": [
+    { "name": "member_id", "type": "string", "required": true, "pattern": "^[0-9]{5}$", "redact": true, "example": "10001" },
+    { "name": "account_type", "type": "string", "required": true, "example": "savings" },
+    { "name": "initial_deposit", "type": "string", "required": true, "example": "500" }
+  ],
+  "outputs": [
+    { "name": "account_number", "type": "string", "required": true, "redact": true }
+  ],
+  "successCheckpoint": {
+    "kind": "all",
+    "of": [
+      { "kind": "element_visible", "target": { "by": "role_name", "role": "heading", "name": "Sub-account opened" } },
+      { "kind": "text_matches", "target": { "by": "label_text", "text": "Account number" }, "pattern": "^SA-[0-9]{5}-[0-9]{4}$" }
+    ]
+  },
+  "preconditionFalse": true,
+  "outcomes": []
+}

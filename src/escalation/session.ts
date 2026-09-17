@@ -158,7 +158,16 @@ export interface EscalationParams extends Omit<ReplayParams, "adapter" | "resume
   evidenceDir: string;
   logger?: EvidenceLogger;
   interventionTimeoutMs?: number;
-  onIntervention?: (request: InterventionRequest) => void;
+  /**
+   * `adapter` is the SAME live adapter the stuck run was using — passed
+   * through so a caller driving the "human" side programmatically (an
+   * evidence-capture script, an automated approval policy) can act on
+   * the live session directly before resuming, exactly as a person at
+   * a headed browser would. Additive: existing single-argument
+   * callbacks remain valid (TS's structural typing accepts a narrower
+   * function where a wider one is expected).
+   */
+  onIntervention?: (request: InterventionRequest, adapter: SurfaceAdapter) => void;
 }
 
 /**
@@ -199,7 +208,7 @@ export async function runReplayWithEscalation(
   params.session.raise(request, { observation: withoutScreenshot(beforeCapture.observation), screenshot_path: beforeCapture.screenshotPath });
   saveObservationSnapshot(`${params.evidenceDir}/handoff`, "before", beforeCapture.observation);
   params.logger?.warn("intervention_raised", runId, { step_id: request.current_step_id, reason_code: request.reason_code });
-  params.onIntervention?.(request);
+  params.onIntervention?.(request, adapter);
 
   const outcome = await params.session.waitForResume();
   if (outcome === "abandoned") {
